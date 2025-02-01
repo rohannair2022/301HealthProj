@@ -1,0 +1,131 @@
+/* General body styling */
+body {
+  /* Calming soft gradient background */
+  background: #a8d8d8; /* light mint */
+  background: -webkit-linear-gradient(to right, rgba(168, 216, 216, 1), rgba(128, 191, 174, 1));
+  background: linear-gradient(to right, rgba(168, 216, 216, 1), rgba(128, 191, 174, 1));
+  
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+}
+
+/* Container for centering login form */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Styling the login card */
+.login-card {
+  background-color: #ffffff; /* soft white */
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+  border: 1px solid #cce3e3; /* light teal border */
+}
+
+/* Form header */
+h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 20px;
+  color: #3a6462; /* soft teal green */
+}
+
+/* Form group for input fields */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+  color: #4f7f7b; /* darker teal */
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #aad4d3; /* soft teal border */
+  font-size: 1rem;
+  color: #4f7f7b;
+  background-color: #f3f8f8; /* very light teal */
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  border-color: #77c6c2; /* soft focus color */
+  outline: none;
+  background-color: #e8f7f7; /* lighter background */
+}
+
+/* Button styling */
+.login-btn,
+.forgot-password,
+.login-tester {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 12px;
+  text-align: center;
+  display: inline-block;
+  border: none;
+}
+
+.login-btn {
+  background-color: #77c6c2; /* soft green */
+  color: white;
+  font-weight: bold;
+}
+
+.login-btn:hover {
+  background-color: #5ba89e; /* darker soft green */
+}
+
+.forgot-password {
+  background-color: transparent;
+  color: #77c6c2;
+  border: 1px solid #77c6c2;
+}
+
+.forgot-password:hover {
+  background-color: #e0f7f7; /* very light teal */
+}
+
+.login-tester {
+  background-color: #6b757f; /* soft grayish teal */
+  color: white;
+}
+
+.login-tester:hover {
+  background-color: #5a6369; /* darker grayish teal */
+}
+
+/* Responsive styling */
+@media (max-width: 500px) {
+  .login-card {
+    padding: 25px;
+  }
+  
+  .form-group input,
+  .login-btn,
+  .forgot-password,
+  .login-tester {
+    font-size: 0.9rem;
+  }
+}

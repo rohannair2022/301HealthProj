@@ -1,19 +1,21 @@
-import React from 'react';
-import './Login.css';
+import React from "react";
+import "./Login.css";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
+  const navigate = useNavigate();
   const handleForgotPassword = () => {
-    alert('Forgot Password clicked');
+    alert("Forgot Password clicked");
   };
 
   const handleLoginAsTester = () => {
-    alert('Logged in as Tester');
+    alert("Logged in as Tester");
     // Logic to handle login as tester can be added here
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
-    alert('Login clicked');
+    alert("Login clicked");
     // Logic to handle login can be added here
   };
 
@@ -35,12 +37,14 @@ const Login = () => {
               <label htmlFor="password">Password:</label>
               <input type="password" id="password" name="password" required />
             </div>
-            <button className="login-btn" type="submit" onClick={handleLogin}>Login</button>
+            <button className="login-btn" type="submit" onClick={handleLogin}>
+              Login
+            </button>
           </form>
           <button className="forgot-password" onClick={handleForgotPassword}>
             Forgot Password?
           </button>
-          <button className="login-tester" onClick={handleLoginAsTester}>
+          <button className="login-tester" onClick={() => navigate("/test")}>
             Login as Tester
           </button>
         </div>

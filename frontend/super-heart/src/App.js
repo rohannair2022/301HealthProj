@@ -1,13 +1,17 @@
-import logo from './logo.svg';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import './App.css';
-import Login from './components/Login/Login.js';
+import logo from "./logo.svg";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./App.css";
+import Login from "./components/Login.js";
+import Landing from "./components/Landing";
+import Test from "./components/Test";
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/test" element={<Test />} />
         <Route path="/dashboard" element={<h1>Welcome to Dashboard</h1>} />
       </Routes>
     </Router>

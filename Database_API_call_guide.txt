@@ -1,0 +1,35 @@
+Patient:
+
+ENDPOINT: /create_patient
+METHOD: POST 
+
+{
+  "name": "guy_number_1",
+  "password": "password123",
+  "email": "some1@mail.com"
+}
+
+ENDPOINT: /delete_patient/<u_id>
+METHOD: DELETE 
+
+{
+} // Empty field, don't even need it
+
+
+
+Friendship:
+ENDPOINT: /add_friend
+METHOD: POST 
+
+{
+  "u_id_1": <u_id_1>,
+  "u_id_2": <u_id_2>
+}
+
+ENDPOINT: /remove_friend
+METHOD: DELETE 
+
+{
+  "u_id_1": <u_id_1>,
+  "u_id_2": <u_id_2>
+}

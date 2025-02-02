@@ -2,11 +2,12 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import os
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://<user>:<password>@localhost/<database_name>' # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -18,7 +19,6 @@ class Patient(db.Model):
 
     u_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False)
-    email = db.Column(db.Text, unique=True, nullable=False)
     password = db.Column(db.Text, nullable=False)
     avg_heartrate = db.Column(db.Integer)
     heart_score = db.Column(db.Integer, default=0)
@@ -42,54 +42,33 @@ class Friendship(db.Model):
 
 # Routes
 
-# User Registration
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
-
-    if not data.get('email') or not data.get('password') or not data.get('name'):
-        return jsonify({"error": "Missing required fields"}), 400
-
-    existing_user = Patient.query.filter_by(email=data['email']).first()
-    if existing_user:
-        return jsonify({"error": "Email already in use"}), 400
-
-    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-    new_user = Patient(
-        name=data['name'],
-        email=data['email'],
-        password=hashed_password
-    )
-
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({"message": "User registered successfully", "u_id": new_user.u_id}), 201
-
 # User Login
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
 
-    if not data.get('email') or not data.get('password'):
-        return jsonify({"error": "Email and password are required"}), 400
+    if not data.get('name') or not data.get('password'):
+        return jsonify({"error": "Username and password are required"}), 400
 
-    user = Patient.query.filter_by(email=data['email']).first()
+    user = Patient.query.filter_by(name=data['name']).first()
     if not user or not bcrypt.check_password_hash(user.password, data['password']):
-        return jsonify({"error": "Invalid email or password"}), 401
+        return jsonify({"error": "Invalid username or password"}), 401
 
     access_token = create_access_token(identity=user.u_id)
 
     return jsonify({"message": "Login successful", "access_token": access_token, "u_id": user.u_id}), 200
 
 # JWT-Protected Route
-@app.route('/protected', methods=['GET'])
-@jwt_required()
-def protected():
-    current_user_id = get_jwt_identity()
-    user = Patient.query.get(current_user_id)
+# Example of a protected route
+# Uncomment this and use when trying out protected routes
 
-    return jsonify({"message": "Access granted", "user": {"u_id": user.u_id, "name": user.name}}), 200
+# @app.route('/protected', methods=['GET'])
+# @jwt_required()
+# def protected():
+#     current_user_id = get_jwt_identity()
+#     user = Patient.query.get(current_user_id)
+
+#     return jsonify({"message": "Access granted", "user": {"u_id": user.u_id, "name": user.name}}), 200
 
 # Patient Creation
 @app.route('/create_patient', methods=['POST'])
@@ -97,13 +76,12 @@ def protected():
 def create_patient():
     data = request.get_json()
 
-    if ('name' not in data) or ('password' not in data) or ('email' not in data):
+    if ('name' not in data) or ('password' not in data):
         return jsonify({"error": "Missing required fields"}), 400
 
     hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
     new_patient = Patient(
         name=data['name'],
-        email=data['email'],
         password=hashed_password,
         avg_heartrate=data.get('avg_heartrate', 0),
         heart_score=data.get('heart_score', 0),

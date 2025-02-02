@@ -5,8 +5,11 @@ Patient Model:
 - name (Text, NOT NULLABLE):  
   The name of the patient. This attribute is required when creating a new patient.
 
+- email (Text, NOT NULLABLE):  
+  The email of the patient. This attribute is required when creating a new patient.
+
 - password (Text, NOT NULLABLE):  
-  The password for the patient. This is required for patient authentication.
+  The password for the patient. This attribute is required when creating a new patient and patient authentication.
 
 - avg_heartrate (Integer, DEFAULT = 0):  
   The average heart rate of the patient, 0 by default (upon patient creation) and may be updated periodically.

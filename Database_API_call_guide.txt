@@ -5,7 +5,8 @@ METHOD: POST
 
 {
   "name": "guy_number_1",
-  "password": "password123"
+  "password": "password123",
+  "email": "some1@mail.com"
 }
 
 ENDPOINT: /delete_patient/<u_id>

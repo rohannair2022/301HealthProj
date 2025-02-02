@@ -1,0 +1,30 @@
+Patient Model:
+- u_id (Integer, PRIMARY KEY):  
+  The unique identifier for the patient.
+
+- name (Text, NOT NULLABLE):  
+  The name of the patient. This attribute is required when creating a new patient.
+
+- password (Text, NOT NULLABLE):  
+  The password for the patient. This is required for patient authentication.
+
+- avg_heartrate (Integer, DEFAULT = 0):  
+  The average heart rate of the patient, 0 by default (upon patient creation) and may be updated periodically.
+
+- heart_score (Integer, DEFAULT = 0):  
+  A calculated score based on the patient's heart health data, 0 by default (upon patient creation) and may be updated periodically.
+
+- steps (Integer, DEFAULT = 0):  
+  The number of steps the patient has taken, tracking their activity level. , 0 by default (upon patient creation) and may be updated periodically.
+
+
+
+Friendship Model:
+- patient_id (Integer, FOREIGN KEY (u_id) REFERENCES PATIENT(u_id)):  
+  The u_id of the initializing patient in the friendship.
+
+- friend_id (Integer, FOREIGN KEY (u_id) REFERENCES PATIENT(u_id)):  
+  The u_id of the receiving patient in the friendship.
+
+- created_at (DateTime):  
+  The date and time when the friendship was created. This is automatically set to the current timestamp when the friendship is added.

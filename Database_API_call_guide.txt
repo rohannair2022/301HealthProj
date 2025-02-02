@@ -13,7 +13,7 @@ ENDPOINT: /delete_patient/<u_id>
 METHOD: DELETE 
 
 {
-}
+} // Empty field, don't even need it
 
 
 

@@ -3,7 +3,7 @@ Patient Model:
   The unique identifier for the patient.
 
 - name (Text, NOT NULLABLE):  
-  The name of the patient. This attribute is required when creating a new patient.
+  The name of the patient. This attribute is required when creating a new patient and can be changed later on.
 
 - email (Text, NOT NULLABLE):  
   The email of the patient. This attribute is required when creating a new patient.

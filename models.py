@@ -136,7 +136,7 @@ def remove_friend():
     if (not u_id_1) or (not u_id_2):
         return jsonify({"error": "Both u_id_1 and u_id_2 are required"}), 400
     
-    # Check for if both users exist
+    # Check for if both users exist 
     patient1 = Patient.query.get(u_id_1)
     patient2 = Patient.query.get(u_id_2)
 

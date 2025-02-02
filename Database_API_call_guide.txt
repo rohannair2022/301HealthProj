@@ -11,6 +11,9 @@ METHOD: POST
 ENDPOINT: /delete_patient/<u_id>
 METHOD: DELETE 
 
+{
+}
+
 
 
 Friendship:

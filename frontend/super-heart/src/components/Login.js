@@ -19,35 +19,89 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    alert("Login clicked");
-    // Logic to handle login can be added here
-    e.preventDefault();
+
     try {
-      const response = await axios.post('http://localhost:5001/login', { 'email' : email, 'password' : password }, {
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await axios.post(
+        "http://localhost:5001/login",
+        {
+          email: email,
+          password: password,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      });
-      const { access_token } = response.data['access_token'];
-      localStorage.setItem('token', access_token); // Store the token in localStorage
-      if (response.status === 200) {
-        navigate("/dashboard"); 
-      } else if (response.status === 401) {
-        alert("Invalid credentials. Please try again.");
-      } else if (response.status === 202 && response.data['first-login'] === true) {
-        await axios.post('http://localhost:5001/create_patient', { 'email': email, 'password': password }, { headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json'} });
-        navigate("/test");
-      } else if (response.status === 202) {
-        navigate("/test");
-      } else {
-        alert("An error occurred. Please try again.");
+      );
+
+      const { access_token, first_login } = response.data;
+
+      // Store the token in localStorage
+      localStorage.setItem("token", access_token);
+
+      // If it's a first login, explicitly create the patient
+      if (first_login) {
+        try {
+          await axios.post(
+            "http://localhost:5001/create_patient",
+            {
+              email: email,
+              password: password,
+              name: email, // Using email as name if no specific name provided
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${access_token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+        } catch (createPatientError) {
+          console.error("Error creating patient:", createPatientError);
+          alert("Could not complete patient registration. Please try again.");
+          return;
+        }
       }
-      console.log('Login successful');
+
+      // Navigate based on login status
+      switch (response.status) {
+        case 200:
+          // Fully registered existing user
+          navigate("/dashboard");
+          break;
+
+        case 201:
+        case 202:
+          // First-time login or incomplete profile
+          navigate("/test");
+          break;
+
+        default:
+          alert("An unexpected error occurred. Please try again.");
+      }
     } catch (error) {
-      console.error('There was an error logging in!', error);
+      // Handle different error scenarios
+      if (error.response) {
+        switch (error.response.status) {
+          case 400:
+            alert("Please provide both email and password.");
+            break;
+          case 401:
+            alert("Invalid credentials. Please try again.");
+            break;
+          default:
+            alert("An error occurred. Please try again.");
+        }
+      } else if (error.request) {
+        // The request was made but no response received
+        alert("No response from server. Please check your connection.");
+      } else {
+        // Something happened in setting up the request
+        alert("Error setting up the login request.");
+      }
+      console.error("Login error:", error);
     }
   };
-
   return (
     <div className="login-container">
       {/* <div className="login-image">

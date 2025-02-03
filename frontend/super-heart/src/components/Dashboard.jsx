@@ -15,16 +15,21 @@ const Dashboard = () => {
   const fetchUserData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/protected', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const userId = localStorage.getItem('u_id');
 
-      if (response.data && response.data.user) {
+      const response = await axios.get(
+        `http://localhost:5001/get_patient/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data) {
         setUserData({
-          heart_score: response.data.user.heart_score || 0,
-          steps: response.data.user.steps || 0,
+          heart_score: response.data.heart_score || 0,
+          steps: response.data.steps || 0,
         });
       }
     } catch (error) {

@@ -8,8 +8,8 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [userData, setUserData] = useState({
-    heart_score: 8.5,
-    steps: 7234,
+    heart_score: 0,
+    steps: 0,
   });
 
   const fetchUserData = useCallback(async () => {
@@ -24,8 +24,8 @@ const Dashboard = () => {
 
       if (response.data) {
         setUserData({
-          heart_score: response.data.heart_score || 0,
-          steps: response.data.steps || 0,
+          heart_score: response.data.patient.heart_score || 0,
+          steps: response.data.patient.steps || 0,
         });
       }
     } catch (error) {

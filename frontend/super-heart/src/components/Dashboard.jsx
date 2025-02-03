@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './Dashboard.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -8,18 +8,11 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [userData, setUserData] = useState({
-    heart_score: 0,
-    steps: 0,
+    heart_score: 8.5,
+    steps: 7234,
   });
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    setIsDarkMode(savedTheme === 'dark');
-    document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get('http://localhost:5001/protected', {
@@ -30,18 +23,24 @@ const Dashboard = () => {
 
       if (response.data && response.data.user) {
         setUserData({
-          heart_score: response.data.user.heart_score || 8.5,
-          steps: response.data.user.steps || 7234,
+          heart_score: response.data.user.heart_score || 0,
+          steps: response.data.user.steps || 0,
         });
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
-      // Handle error - maybe redirect to login if token is invalid
       if (error.response && error.response.status === 401) {
         navigate('/login');
       }
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    setIsDarkMode(savedTheme === 'dark');
+    document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
+    fetchUserData();
+  }, [fetchUserData]);
 
   // Theme toggle function
   const toggleTheme = () => {

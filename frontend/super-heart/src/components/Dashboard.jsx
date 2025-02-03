@@ -1,17 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [userData, setUserData] = useState({
+    heart_score: 0,
+    steps: 0,
+  });
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     setIsDarkMode(savedTheme === 'dark');
     document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
+    fetchUserData();
   }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/protected', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data && response.data.user) {
+        setUserData({
+          heart_score: response.data.user.heart_score || 8.5,
+          steps: response.data.user.steps || 7234,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      // Handle error - maybe redirect to login if token is invalid
+      if (error.response && error.response.status === 401) {
+        navigate('/login');
+      }
+    }
+  };
 
   // Theme toggle function
   const toggleTheme = () => {
@@ -82,18 +112,18 @@ const Dashboard = () => {
           <div className='dashboard-grid'>
             <div className='dashboard-card'>
               <h3>Heart Health Score</h3>
-              <div className='score'>8.5</div>
+              <div className='score'>{userData.heart_score}</div>
               <p>Out of 10</p>
             </div>
 
             <div className='dashboard-card'>
               <h3>Daily Steps</h3>
-              <div className='score'>7,234</div>
+              <div className='score'>{userData.steps}</div>
               <div className='steps-progress'>
                 <div className='progress-bar'>
                   <div
                     className='progress-fill'
-                    style={{ width: `${(7234 / 10000) * 100}%` }}
+                    style={{ width: `${(userData.steps / 10000) * 100}%` }}
                   ></div>
                 </div>
                 <p>Target: 10,000 steps</p>
@@ -102,13 +132,13 @@ const Dashboard = () => {
 
             <div className='dashboard-card'>
               <h3>Height</h3>
-              <div className='measurement'>170 cm</div>
+              <div className='measurement'>X</div>
               <p>Current Height</p>
             </div>
 
             <div className='dashboard-card'>
               <h3>Weight</h3>
-              <div className='measurement'>72 kg</div>
+              <div className='measurement'>X</div>
               <p>Current Weight</p>
             </div>
           </div>

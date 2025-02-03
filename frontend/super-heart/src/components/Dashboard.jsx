@@ -5,21 +5,20 @@ import { useNavigate } from 'react-router-dom';
 const Dashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  // const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Comment out theme effect
-  /* useEffect(() => {
+  useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     setIsDarkMode(savedTheme === 'dark');
     document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
-  }, []); */
+  }, []);
 
-  // Comment out theme toggle function
-  /* const toggleTheme = () => {
+  // Theme toggle function
+  const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
     document.body.className = !isDarkMode ? 'dark-mode' : '';
     localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
-  }; */
+  };
 
   const friends = [
     { id: 1, name: 'John Doe', heartScore: 8.5 },
@@ -53,12 +52,10 @@ const Dashboard = () => {
             <i className='fas fa-cog'></i>
             Settings
           </li>
-          {/* Comment out theme toggle button
           <li onClick={toggleTheme} className='theme-toggle'>
             <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
             {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </li>
-          */}
         </ul>
       </nav>
 

@@ -115,7 +115,7 @@ const Dashboard = () => {
 
           <div className='friends-section'>
             <div className='section-header'>
-              <h3>Friends List</h3>
+              <h3>Friends</h3>
               <button className='add-friend-btn'>
                 <i className='fas fa-plus'></i> Add Friend
               </button>

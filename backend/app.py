@@ -3,9 +3,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://<user>:<password>@localhost/<database_name>' # Replace <user>, <password>, <database_name>
+CORS(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Postgres@localhost/postgres' # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 
@@ -18,6 +20,7 @@ class Patient(db.Model):
     __tablename__ = 'patient'
 
     u_id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.Text, nullable=False, unique=True)
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
     avg_heartrate = db.Column(db.Integer)
@@ -47,41 +50,47 @@ class Friendship(db.Model):
 def login():
     data = request.get_json()
 
-    if not data.get('name') or not data.get('password'):
-        return jsonify({"error": "Username and password are required"}), 400
-
-    user = Patient.query.filter_by(name=data['name']).first()
-    if not user or not bcrypt.check_password_hash(user.password, data['password']):
-        return jsonify({"error": "Invalid username or password"}), 401
-
-    access_token = create_access_token(identity=user.u_id)
-
+    if not data.get('email') or not data.get('password'):
+        return jsonify({"error": "Email and password are required"}), 400
+    print(data)
+    
+    user = Patient.query.filter_by(name=data['email']).first()
+    if not user:
+        access_token = create_access_token(identity=data['email'])
+        return jsonify({"message": "Login successful", "access_token": access_token, "first_login": True}), 202
+    elif not bcrypt.check_password_hash(user.password, data['password']):
+        return jsonify({"error": "Invalid email or password"}), 401
+    elif user.heart_score == 0:
+        access_token = create_access_token(identity=data['email'])
+        return jsonify({"message": "Login successful", "access_token": access_token, "first_login": False}), 202
+    access_token = create_access_token(identity=data['email'])
     return jsonify({"message": "Login successful", "access_token": access_token, "u_id": user.u_id}), 200
 
 # JWT-Protected Route
 # Example of a protected route
 # Uncomment this and use when trying out protected routes
 
-# @app.route('/protected', methods=['GET'])
-# @jwt_required()
-# def protected():
-#     current_user_id = get_jwt_identity()
-#     user = Patient.query.get(current_user_id)
+@app.route('/protected', methods=['GET'])
+@jwt_required()
+def protected():
+    current_user_id = get_jwt_identity()
+    user = Patient.query.get(current_user_id)
 
-#     return jsonify({"message": "Access granted", "user": {"u_id": user.u_id, "name": user.name}}), 200
+    return jsonify({"message": "Access granted", "user": {"u_id": user.u_id, "name": user.name}}), 200
 
 # Patient Creation
 @app.route('/create_patient', methods=['POST'])
-@jwt_required()
+# @jwt_required()
 def create_patient():
     data = request.get_json()
 
-    if ('name' not in data) or ('password' not in data):
+    if ('password' not in data) or ('email' not in data):
         return jsonify({"error": "Missing required fields"}), 400
 
     hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
     new_patient = Patient(
-        name=data['name'],
+        name=data.get('name', data['email']),
+        email=data['email'],
         password=hashed_password,
         avg_heartrate=data.get('avg_heartrate', 0),
         heart_score=data.get('heart_score', 0),

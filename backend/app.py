@@ -274,14 +274,14 @@ def submit_test():
         # Handle any other unforeseen errors
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
-@app.route('/get_patient/<int:u_id>', methods=['GET'])
+@app.route('/get_patient', methods=['GET'])
 @jwt_required()
-def get_patient_data(u_id):
+def get_patient_data():
     # Get the email from the JWT token for verification
     user_email = get_jwt_identity()
     
     # Verify this user is requesting their own data
-    patient = Patient.query.filter_by(email=user_email, u_id=u_id).first()
+    patient = Patient.query.filter_by(email=str(user_email)).first()
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
     

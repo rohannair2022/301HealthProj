@@ -15,16 +15,12 @@ const Dashboard = () => {
   const fetchUserData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const userId = localStorage.getItem('u_id');
 
-      const response = await axios.get(
-        `http://localhost:5001/get_patient/${userId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await axios.get('http://localhost:5001/get_patient', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.data) {
         setUserData({

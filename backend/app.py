@@ -4,12 +4,14 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import os
 from flask_cors import CORS
+from sqlalchemy.exc import SQLAlchemyError
+
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Postgres@localhost/postgres' # Replace <user>, <password>, <database_name>
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Database4833@localhost:5432/userDB' # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
+app.config['JWT_SECRET_KEY'] = 'your_secret_key' # os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -54,7 +56,7 @@ def login():
         return jsonify({"error": "Email and password are required"}), 400
     print(data)
     
-    user = Patient.query.filter_by(name=data['email']).first()
+    user = Patient.query.filter_by(email=data['email']).first()
     if not user:
         access_token = create_access_token(identity=data['email'])
         return jsonify({"message": "Login successful", "access_token": access_token, "first_login": True}), 202
@@ -78,16 +80,28 @@ def protected():
 
     return jsonify({"message": "Access granted", "user": {"u_id": user.u_id, "name": user.name}}), 200
 
-# Patient Creation
 @app.route('/create_patient', methods=['POST'])
+# Uncomment the next line if you want to protect this route with JWT authentication
 # @jwt_required()
 def create_patient():
     data = request.get_json()
 
-    if ('password' not in data) or ('email' not in data):
-        return jsonify({"error": "Missing required fields"}), 400
+    # Check if data is provided
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
 
+    # Validate required fields
+    if 'email' not in data or 'password' not in data:
+        return jsonify({"error": "Missing required fields: email and password"}), 400
+
+    # Check if a patient with this email already exists
+    if Patient.query.filter_by(email=data['email']).first():
+        return jsonify({"error": "Email already registered"}), 400
+
+    # Hash the password
     hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+
+    # Create a new Patient object
     new_patient = Patient(
         name=data.get('name', data['email']),
         email=data['email'],
@@ -97,10 +111,15 @@ def create_patient():
         steps=data.get('steps', 0)
     )
 
-    db.session.add(new_patient)
-    db.session.commit()
+    try:
+        db.session.add(new_patient)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Error creating patient", "details": str(e)}), 500
 
     return jsonify({"message": "Patient created successfully", "u_id": new_patient.u_id}), 201
+
 
 # Patient Deletion
 @app.route('/remove_patient/<int:u_id>', methods=['DELETE'])
@@ -194,6 +213,67 @@ def remove_friend():
     db.session.commit()
 
     return jsonify({"message": "Friend removed successfully"}), 200
+
+
+
+
+
+@app.route('/submit-test', methods=['POST'])
+@jwt_required()  # Ensure the user is authenticated
+def submit_test():
+    try:
+        # Extract the data from the incoming request
+        data = request.get_json()
+
+        # Ensure the required fields are in the request
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        heartHealthRating = data.get('heartHealthRating')
+        if heartHealthRating is None:
+            return jsonify({"error": "Missing 'heartHealthRating'"}), 400
+
+        walked5000Steps = 10 if data.get('walked5000Steps') == 'Yes' else 0
+        lipidPanel = 15 if data.get('lipidPanel') == 'Yes' else 0
+        glucoseTest = 15 if data.get('glucoseTest') == 'Yes' else 0
+        consultedCardiologist = 20 if data.get('consultedCardiologist') == 'Yes' else 0
+        consultedDietitian = 20 if data.get('consultedDietitian') == 'Yes' else 0
+
+        # Extract user email from the JWT token (authentication)
+        user_email = get_jwt_identity()
+
+        # Fetch the patient record from the database using the email from the token
+        patient = Patient.query.filter_by(email=str(user_email)).first()
+
+        if not patient:
+            return jsonify({"error": "User email not found: " + str(user_email)}), 404  # Return 404 if user doesn't exist
+
+        # Calculate the heart score
+        heart_score = (
+            heartHealthRating * 5
+            + walked5000Steps
+            + lipidPanel
+            + glucoseTest
+            + consultedCardiologist
+            + consultedDietitian
+        )
+        heart_score = min(heart_score, 100)  # Ensure the score is capped at 100
+
+        # Update the patient's heart score in the database
+        patient.heart_score = heart_score
+        db.session.commit()
+
+        return jsonify({"message": "Test submitted successfully", "heart_score": heart_score}), 200
+
+    except SQLAlchemyError as e:
+        # Handle database errors
+        db.session.rollback()  # Rollback any transaction to avoid inconsistent states
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    except Exception as e:
+        # Handle any other unforeseen errors
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     with app.app_context():

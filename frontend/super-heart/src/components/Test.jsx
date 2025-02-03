@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { Form, Button, Container } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const Test = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    heartHealthRating: "",
+    heartHealthRating: 0,
     walked5000Steps: "",
     lipidPanel: "",
     glucoseTest: "",
@@ -14,12 +17,34 @@ const Test = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData({
+      ...formData,
+      [name]: name === "heartHealthRating" ? parseInt(value, 10) || 0 : value,
+    });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form Data Submitted:", formData);
+    try {
+      const token = localStorage.getItem("token");
+      console.log(formData);
+      const response = await axios.post(
+        "http://localhost:5001/submit-test",
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Server response:", response.data);
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Error submitting form:", error.response?.data || error);
+      alert("Error submitting form. Please try again.");
+    }
   };
 
   return (

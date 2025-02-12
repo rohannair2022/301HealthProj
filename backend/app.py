@@ -6,7 +6,6 @@ import os
 from flask_cors import CORS
 from sqlalchemy.exc import SQLAlchemyError
 
-
 app = Flask(__name__)
 CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Database4833@localhost:5432/userDB' # Replace <user>, <password>, <database_name>

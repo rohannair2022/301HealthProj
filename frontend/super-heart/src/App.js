@@ -5,6 +5,7 @@ import Login from './components/Login.js';
 import Landing from './components/Landing';
 import Test from './components/Test';
 import Dashboard from './components/Dashboard';
+import Register from './components/Register';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Routes>
         <Route path='/' element={<Landing />} />
         <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Register />} />
         <Route path='/test' element={<Test />} />
         <Route path='/dashboard' element={<Dashboard />} />
       </Routes>

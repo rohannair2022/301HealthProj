@@ -1,0 +1,120 @@
+/* Previous styles remain the same */
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.register-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+  border: 1px solid #cce3e3;
+}
+
+.register-form h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 20px;
+  color: #3a6462;
+}
+
+.error-message {
+  background-color: #ffe6e6;
+  color: #cc0000;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+  color: #4f7f7b;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #aad4d3;
+  font-size: 1rem;
+  color: #4f7f7b;
+  background-color: #f3f8f8;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  border-color: #77c6c2;
+  outline: none;
+  background-color: #e8f7f7;
+}
+
+/* Updated button styles */
+.register-btn,
+.login-link {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 12px;
+  text-align: center;
+  display: inline-block;
+  border: none;
+}
+
+.patient-btn {
+  background-color: #77c6c2;
+  color: white;
+  font-weight: bold;
+}
+
+.patient-btn:hover {
+  background-color: #5ba89e;
+}
+
+.doctor-btn {
+  background-color: #4a90e2;
+  color: white;
+  font-weight: bold;
+}
+
+.doctor-btn:hover {
+  background-color: #357abd;
+}
+
+.login-link {
+  background-color: transparent;
+  color: #77c6c2;
+  border: 1px solid #77c6c2;
+}
+
+.login-link:hover {
+  background-color: #e0f7f7;
+}
+
+@media (max-width: 500px) {
+  .register-card {
+    padding: 25px;
+  }
+  
+  .form-group input,
+  .register-btn,
+  .login-link {
+    font-size: 0.9rem;
+  }
+}

@@ -18,6 +18,9 @@ const Landing = () => {
         <Button variant="outline-light" onClick={() => navigate("/login")}>
           Login
         </Button>
+        <Button variant="outline-light" onClick={() => navigate("/register")}>
+          Register
+        </Button>
       </div>
     </div>
   );

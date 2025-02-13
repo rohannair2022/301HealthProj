@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Database4833@localhost:5432/userDB' # Replace <user>, <password>, <database_name>
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'your_secret_key' # os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 
@@ -47,26 +47,106 @@ class Friendship(db.Model):
 
 # Routes
 
-# User Login
+class Doctor(db.Model):
+    __tablename__ = 'doctor'
+
+    u_id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.Text, nullable=False, unique=True)
+    name = db.Column(db.Text, nullable=False)
+    password = db.Column(db.Text, nullable=False)
+    specialty = db.Column(db.Text)
+    # patients = db.relationship(
+    #     'Patient',
+    #     secondary='doctor_patient',
+    #     backref=db.backref('doctors', lazy='dynamic'),
+    #     lazy='dynamic'
+    # )
+
+# class DoctorPatient(db.Model):
+#     __tablename__ = 'doctor_patient'
+#     doctor_id = db.Column(db.Integer, db.ForeignKey('doctor.u_id'), primary_key=True)
+#     patient_id = db.Column(db.Integer, db.ForeignKey('patient.u_id'), primary_key=True)
+#     assigned_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+# Updated routes
+@app.route('/register/<type>', methods=['POST'])
+def register(type):
+    if type not in ['patient', 'doctor']:
+        return jsonify({"error": "Invalid registration type"}), 400
+
+    data = request.get_json()
+
+    # Validate required fields
+    if not all(key in data for key in ['email', 'name', 'password']):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Check if email already exists in either doctors or patients
+    if Doctor.query.filter_by(email=data['email']).first() or \
+       Patient.query.filter_by(email=data['email']).first():
+        return jsonify({"error": "Email already registered"}), 409
+
+    try:
+        # Hash the password
+        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+
+        if type == 'doctor':
+            new_user = Doctor(
+                email=data['email'],
+                name=data['name'],
+                password=hashed_password,
+                specialty=data.get('specialty', '')
+            )
+        else:  # patient
+            new_user = Patient(
+                email=data['email'],
+                name=data['name'],
+                password=hashed_password,
+                heart_score=0,
+                steps=0
+            )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({"message": f"{type.capitalize()} registration successful"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
+
+# Update your login route to check both tables
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
 
     if not data.get('email') or not data.get('password'):
         return jsonify({"error": "Email and password are required"}), 400
-    print(data)
-    
-    user = Patient.query.filter_by(email=data['email']).first()
+
+    # Check both doctors and patients
+    user = Doctor.query.filter_by(email=data['email']).first() or \
+           Patient.query.filter_by(email=data['email']).first()
+
     if not user:
-        access_token = create_access_token(identity=data['email'])
-        return jsonify({"message": "Login successful", "access_token": access_token, "first_login": True}), 202
-    elif not bcrypt.check_password_hash(user.password, data['password']):
-        return jsonify({"error": "Invalid email or password"}), 401
-    elif user.heart_score == 0:
-        access_token = create_access_token(identity=data['email'])
-        return jsonify({"message": "Login successful", "access_token": access_token, "first_login": False}), 202
-    access_token = create_access_token(identity=data['email'])
-    return jsonify({"message": "Login successful", "access_token": access_token, "u_id": user.u_id}), 200
+        return jsonify({"error": "User not found"}), 404
+
+    if not bcrypt.check_password_hash(user.password, data['password']):
+        return jsonify({"error": "Invalid password"}), 401
+
+    # Create token with user type information
+    user_type = 'doctor' if isinstance(user, Doctor) else 'patient'
+    access_token = create_access_token(identity={
+        'email': user.email,
+        'type': user_type,
+        'u_id': user.u_id
+    })
+
+    return jsonify({
+        "message": "Login successful",
+        "access_token": access_token,
+        "user_type": user_type,
+        "u_id": user.u_id
+    }), 200
+
 
 # JWT-Protected Route
 # Example of a protected route
@@ -79,6 +159,37 @@ def protected():
     user = Patient.query.get(current_user_id)
 
     return jsonify({"message": "Access granted", "user": {"u_id": user.u_id, "name": user.name}}), 200
+
+# @app.route('/protected', methods=['GET'])
+# @jwt_required()
+# def protected():
+#     current_user = get_jwt_identity()
+
+#     # Handle the case where identity is a dict
+#     if isinstance(current_user, dict):
+#         user_type = current_user.get('type')
+#         user_email = current_user.get('email')
+
+#         if user_type == 'doctor':
+#             user = Doctor.query.filter_by(email=user_email).first()
+#         else:
+#             user = Patient.query.filter_by(email=user_email).first()
+#     else:
+#         # Fallback for old tokens
+#         user = Patient.query.filter_by(email=current_user).first() or \
+#                Doctor.query.filter_by(email=current_user).first()
+
+#     if not user:
+#         return jsonify({"error": "User not found"}), 404
+
+#     return jsonify({
+#         "message": "Access granted",
+#         "user": {
+#             "u_id": user.u_id,
+#             "name": user.name,
+#             "type": "doctor" if isinstance(user, Doctor) else "patient"
+#         }
+#     }), 200
 
 @app.route('/create_patient', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
@@ -215,9 +326,6 @@ def remove_friend():
     return jsonify({"message": "Friend removed successfully"}), 200
 
 
-
-
-
 @app.route('/submit-test', methods=['POST'])
 @jwt_required()  # Ensure the user is authenticated
 def submit_test():
@@ -279,12 +387,12 @@ def submit_test():
 def get_patient_data():
     # Get the email from the JWT token for verification
     user_email = get_jwt_identity()
-    
+
     # Verify this user is requesting their own data
     patient = Patient.query.filter_by(email=str(user_email)).first()
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
-    
+
     return jsonify({
         "patient": {
             "name": patient.name,
@@ -292,6 +400,31 @@ def get_patient_data():
             "steps": patient.steps,
         }
     }), 200
+
+# @app.route('/get_doctor', methods=['GET'])
+# @jwt_required()
+# def get_doctor_data():
+#     # Get the identity from JWT token
+#     user_identity = get_jwt_identity()
+
+#     # Since we're storing dictionary in identity now, we need to get email from it
+#     if isinstance(user_identity, dict):
+#         user_email = user_identity.get('email')
+#     else:
+#         user_email = user_identity
+
+#     # Verify this user is requesting their own data
+#     doctor = Doctor.query.filter_by(email=str(user_email)).first()
+#     if not doctor:
+#         return jsonify({"error": "Doctor not found"}), 404
+
+#     return jsonify({
+#         "doctor": {
+#             "name": doctor.name,
+#             "specialty": doctor.specialty,
+#             "email": doctor.email
+#         }
+#     }), 200
 
 if __name__ == '__main__':
     with app.app_context():

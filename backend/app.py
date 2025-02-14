@@ -385,6 +385,59 @@ def list_friends():
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
 
+# Friend Removal
+@app.route('/remove_friend', methods=['DELETE'])
+@jwt_required()
+def remove_friend():
+    try:
+        data = request.get_json()
+        current_user_email = get_jwt_identity()
+
+        if not data.get('friend_id') or not data.get('friend_type'):
+            return jsonify({"error": "Friend ID and type are required"}), 400
+
+        friend_id = data.get('friend_id')
+        friend_type = data.get('friend_type')  # 'patient' or 'doctor'
+
+        # Get current user
+        current_user = Patient.query.filter_by(email=current_user_email).first()
+        current_user_type = 'patient'
+        
+        if not current_user:
+            current_user = Doctor.query.filter_by(email=current_user_email).first()
+            current_user_type = 'doctor'
+
+        if not current_user:
+            return jsonify({"error": "Current user not found"}), 404
+
+        # Find and remove both friendship records
+        friendship1 = Friendship.query.filter_by(
+            user_id=current_user.u_id,
+            friend_id=friend_id,
+            user_type=current_user_type,
+            friend_type=friend_type
+        ).first()
+
+        friendship2 = Friendship.query.filter_by(
+            user_id=friend_id,
+            friend_id=current_user.u_id,
+            user_type=friend_type,
+            friend_type=current_user_type
+        ).first()
+
+        if not friendship1 or not friendship2:
+            return jsonify({"error": "Friendship not found"}), 404
+
+        db.session.delete(friendship1)
+        db.session.delete(friendship2)
+        db.session.commit()
+
+        return jsonify({"message": "Friend removed successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print("Error occurred:", str(e))
+        return jsonify({"error": str(e)}), 500
 ############################################################################################################################
 
 # Heart Score Calculation

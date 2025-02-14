@@ -5,19 +5,22 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 import os
 from flask_cors import CORS
 from sqlalchemy.exc import SQLAlchemyError
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'your_secret_key' # os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
+app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 
-# Models
+# MODELS
 class Patient(db.Model):
     __tablename__ = 'patient'
 
@@ -29,24 +32,6 @@ class Patient(db.Model):
     heart_score = db.Column(db.Integer, default=0)
     steps = db.Column(db.Integer)
 
-    friends = db.relationship(
-        'Patient',
-        secondary='friendship',
-        primaryjoin='Patient.u_id == Friendship.patient_id',
-        secondaryjoin='Patient.u_id == Friendship.friend_id',
-        backref='friend_list',
-        lazy='dynamic'
-    )
-
-class Friendship(db.Model):
-    __tablename__ = 'friendship'
-
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.u_id'), primary_key=True)
-    friend_id = db.Column(db.Integer, db.ForeignKey('patient.u_id'), primary_key=True)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-
-# Routes
-
 class Doctor(db.Model):
     __tablename__ = 'doctor'
 
@@ -55,20 +40,33 @@ class Doctor(db.Model):
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
     specialty = db.Column(db.Text)
-    # patients = db.relationship(
-    #     'Patient',
-    #     secondary='doctor_patient',
-    #     backref=db.backref('doctors', lazy='dynamic'),
-    #     lazy='dynamic'
-    # )
 
-# class DoctorPatient(db.Model):
-#     __tablename__ = 'doctor_patient'
-#     doctor_id = db.Column(db.Integer, db.ForeignKey('doctor.u_id'), primary_key=True)
-#     patient_id = db.Column(db.Integer, db.ForeignKey('patient.u_id'), primary_key=True)
-#     assigned_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+class Friendship(db.Model):
+    __tablename__ = 'friendship'
 
-# Updated routes
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    friend_id = db.Column(db.Integer, nullable=False)
+    user_type = db.Column(db.String(10), nullable=False)  # 'patient' or 'doctor'
+    friend_type = db.Column(db.String(10), nullable=False)  # 'patient' or 'doctor'
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    # Define relationships
+    user_patient = db.relationship('Patient', foreign_keys=[user_id],
+                                 primaryjoin="and_(Friendship.user_id==Patient.u_id, "
+                                           "Friendship.user_type=='patient')")
+    user_doctor = db.relationship('Doctor', foreign_keys=[user_id],
+                                primaryjoin="and_(Friendship.user_id==Doctor.u_id, "
+                                          "Friendship.user_type=='doctor')")
+    friend_patient = db.relationship('Patient', foreign_keys=[friend_id],
+                                   primaryjoin="and_(Friendship.friend_id==Patient.u_id, "
+                                             "Friendship.friend_type=='patient')")
+    friend_doctor = db.relationship('Doctor', foreign_keys=[friend_id],
+                                  primaryjoin="and_(Friendship.friend_id==Doctor.u_id, "
+                                            "Friendship.friend_type=='doctor')")
+
+
+# UPDATED ROUTES
 @app.route('/register/<type>', methods=['POST'])
 def register(type):
     if type not in ['patient', 'doctor']:
@@ -132,18 +130,13 @@ def login():
     if not bcrypt.check_password_hash(user.password, data['password']):
         return jsonify({"error": "Invalid password"}), 401
 
-    # Create token with user type information
-    user_type = 'doctor' if isinstance(user, Doctor) else 'patient'
-    access_token = create_access_token(identity={
-        'email': user.email,
-        'type': user_type,
-        'u_id': user.u_id
-    })
+    # Simplified: just use email as identity
+    access_token = create_access_token(identity=user.email)
 
     return jsonify({
         "message": "Login successful",
         "access_token": access_token,
-        "user_type": user_type,
+        "user_type": "doctor" if isinstance(user, Doctor) else "patient",
         "u_id": user.u_id
     }), 200
 
@@ -248,82 +241,6 @@ def remove_patient(u_id):
     db.session.commit()
 
     return jsonify({"message": "Patient and related friendships removed successfully"}), 200
-
-# Friend Addition
-@app.route('/add_friend', methods=['POST'])
-@jwt_required()
-def add_friend():
-    data = request.get_json()
-
-    u_id_1 = data.get('u_id_1')
-    u_id_2 = data.get('u_id_2')
-
-    if (not u_id_1) or (not u_id_2):
-        return jsonify({"error": "Both u_id_1 and u_id_2 must be provided"}), 400
-
-    if u_id_1 == u_id_2:
-        return jsonify({"error": "You cannot be friends with yourself"}), 400
-
-    patient_1 = Patient.query.get(u_id_1)
-    patient_2 = Patient.query.get(u_id_2)
-
-    if (not patient_1) or (not patient_2):
-        return jsonify({"error": "One or both patients do not exist"}), 404
-
-    existing_friendship = Friendship.query.filter_by(patient_id=u_id_1, friend_id=u_id_2).first()
-    if existing_friendship:
-        return jsonify({"error": "Friendship already exists"}), 400
-
-    friendship1 = Friendship(patient_id=u_id_1, friend_id=u_id_2)
-    friendship2 = Friendship(patient_id=u_id_2, friend_id=u_id_1)
-
-    db.session.add(friendship1)
-    db.session.add(friendship2)
-    db.session.commit()
-
-    return jsonify({"message": "Friend added successfully"}), 201
-
-# Friend List
-@app.route('/list_friends/<int:user_id>', methods=['GET'])
-@jwt_required()
-def list_friends(user_id):
-    patient = Patient.query.get(user_id)
-
-    if not patient:
-        return jsonify({"error": "Patient not found"}), 404
-
-    friends = [{"u_id": friend.u_id, "name": friend.name} for friend in patient.friends]
-
-    return jsonify({"friends": friends}), 200
-
-# Friend Removal
-@app.route('/remove_friend', methods=['DELETE'])
-@jwt_required()
-def remove_friend():
-    data = request.get_json()
-
-    u_id_1 = data.get('u_id_1')
-    u_id_2 = data.get('u_id_2')
-
-    if (not u_id_1) or (not u_id_2):
-        return jsonify({"error": "Both u_id_1 and u_id_2 are required"}), 400
-    patient1 = Patient.query.get(u_id_1)
-    patient2 = Patient.query.get(u_id_2)
-
-    if (not patient1) or (not patient2):
-        return jsonify({"error": "One or both patients not found"}), 404
-
-    friendship1 = Friendship.query.filter_by(patient_id=u_id_1, friend_id=u_id_2).first()
-    friendship2 = Friendship.query.filter_by(patient_id=u_id_2, friend_id=u_id_1).first()
-
-    if (not friendship1) or (not friendship2):
-        return jsonify({"error": "Friendship does not exist"}), 404
-
-    db.session.delete(friendship1)
-    db.session.delete(friendship2)
-    db.session.commit()
-
-    return jsonify({"message": "Friend removed successfully"}), 200
 
 
 @app.route('/submit-test', methods=['POST'])

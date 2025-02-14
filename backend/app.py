@@ -449,8 +449,121 @@ def remove_friend():
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
 
+# Get All Users
+@app.route('/list_users', methods=['GET'])
+@jwt_required()
+def list_users():
+    try:
+        current_user_email = get_jwt_identity()
+        
+        # Get current user to exclude them from the list
+        current_user = Patient.query.filter_by(email=current_user_email).first()
+        current_user_type = 'patient'
+        
+        if not current_user:
+            current_user = Doctor.query.filter_by(email=current_user_email).first()
+            current_user_type = 'doctor'
+            
+        if not current_user:
+            return jsonify({"error": "Current user not found"}), 404
 
+        # Get existing friendships to exclude
+        existing_friends = Friendship.query.filter(
+            db.or_(
+                Friendship.user_id == current_user.u_id,
+                Friendship.friend_id == current_user.u_id
+            )
+        ).all()
 
+        # Create set of friend IDs
+        friend_ids = set()
+        for friendship in existing_friends:
+            if friendship.user_id == current_user.u_id:
+                friend_ids.add(friendship.friend_id)
+            else:
+                friend_ids.add(friendship.user_id)
+
+        # Initialize users list
+        users = []
+        
+        # If current user is a doctor, only show patients
+        if current_user_type == 'doctor':
+            patients = Patient.query.filter(
+                db.and_(
+                    ~Patient.u_id.in_(list(friend_ids))
+                )
+            ).all()
+            
+            for patient in patients:
+                users.append({
+                    "u_id": patient.u_id,
+                    "name": patient.name,
+                    "email": patient.email,
+                    "type": "patient",
+                    "heart_score": patient.heart_score
+                })
+        
+        # If current user is a patient, show both patients and doctors
+        else:
+            patients = Patient.query.filter(
+                db.and_(
+                    Patient.u_id != current_user.u_id,
+                    ~Patient.u_id.in_(list(friend_ids))
+                )
+            ).all()
+
+            doctors = Doctor.query.filter(
+                db.and_(
+                    Doctor.u_id != current_user.u_id,
+                    ~Doctor.u_id.in_(list(friend_ids))
+                )
+            ).all()
+            
+            for patient in patients:
+                users.append({
+                    "u_id": patient.u_id,
+                    "name": patient.name,
+                    "email": patient.email,
+                    "type": "patient",
+                    "heart_score": patient.heart_score
+                })
+            
+            for doctor in doctors:
+                users.append({
+                    "u_id": doctor.u_id,
+                    "name": doctor.name,
+                    "email": doctor.email,
+                    "type": "doctor",
+                    "specialty": doctor.specialty
+                })
+
+        return jsonify({"users": users}), 200
+
+    except Exception as e:
+        print("Error occurred:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/get_user_type', methods=['GET'])
+@jwt_required()
+def get_user_type():
+    try:
+        current_user_email = get_jwt_identity()
+        
+        # Check if user is a patient
+        patient = Patient.query.filter_by(email=current_user_email).first()
+        if patient:
+            return jsonify({"user_type": "patient"})
+            
+        # Check if user is a doctor
+        doctor = Doctor.query.filter_by(email=current_user_email).first()
+        if doctor:
+            return jsonify({"user_type": "doctor"})
+            
+        return jsonify({"error": "User type not found"}), 404
+            
+    except Exception as e:
+        print("Error occurred:", str(e))
+        return jsonify({"error": str(e)}), 500
 ############################################################################################################################
 
 # Heart Score Calculation

@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
 import os
 from flask_cors import CORS
 from sqlalchemy.exc import SQLAlchemyError
@@ -130,21 +130,24 @@ def login():
     if not bcrypt.check_password_hash(user.password, data['password']):
         return jsonify({"error": "Invalid password"}), 401
 
-    # Simplified: just use email as identity
+    # Create token with user type information
+    user_type = 'doctor' if isinstance(user, Doctor) else 'patient'
     access_token = create_access_token(identity=user.email)
+
+    # Check if this is a first login (heart_score will be 0 for new patients)
+    is_first_login = isinstance(user, Patient) and user.heart_score == 0
 
     return jsonify({
         "message": "Login successful",
         "access_token": access_token,
-        "user_type": "doctor" if isinstance(user, Doctor) else "patient",
-        "u_id": user.u_id
+        "user_type": user_type,
+        "u_id": user.u_id,
+        "is_first_login": is_first_login
     }), 200
-
 
 # JWT-Protected Route
 # Example of a protected route
 # Uncomment this and use when trying out protected routes
-
 @app.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():
@@ -497,6 +500,7 @@ def submit_test():
         # Handle any other unforeseen errors
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
+# Get patient info 
 @app.route('/get_patient', methods=['GET'])
 @jwt_required()
 def get_patient_data():
@@ -515,6 +519,14 @@ def get_patient_data():
             "steps": patient.steps,
         }
     }), 200
+
+# Logout User  
+@app.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    response = jsonify({"message": "Successfully logged out"})
+    unset_jwt_cookies(response)
+    return response, 200
 
 # @app.route('/get_doctor', methods=['GET'])
 # @jwt_required()

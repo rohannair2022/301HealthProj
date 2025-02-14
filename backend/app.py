@@ -243,6 +243,90 @@ def remove_patient(u_id):
     return jsonify({"message": "Patient and related friendships removed successfully"}), 200
 
 
+############################################################################################################################
+# FRIEND ROUTES
+@app.route('/add_friend', methods=['POST'])
+@jwt_required()
+def add_friend():
+    try:
+        data = request.get_json()
+        current_user_email = get_jwt_identity()
+        
+        if not data.get('friend_id') or not data.get('friend_type'):
+            return jsonify({"error": "Friend ID and type are required"}), 400
+            
+        friend_id = data.get('friend_id')
+        friend_type = data.get('friend_type')  # 'patient' or 'doctor'
+        
+        # Get current user
+        current_user = Patient.query.filter_by(email=current_user_email).first()
+        current_user_type = 'patient'
+        
+        if not current_user:
+            current_user = Doctor.query.filter_by(email=current_user_email).first()
+            current_user_type = 'doctor'
+            
+        if not current_user:
+            return jsonify({"error": "Current user not found"}), 404
+            
+        # Enforce doctor-patient relationship rules
+        if current_user_type == 'doctor' and friend_type != 'patient':
+            return jsonify({"error": "Doctors can only add patients as friends"}), 400
+            
+        # Get friend
+        if friend_type == 'patient':
+            friend = Patient.query.get(friend_id)
+        else:
+            friend = Doctor.query.get(friend_id)
+            
+        if not friend:
+            return jsonify({"error": "Friend not found"}), 404
+            
+        if current_user.u_id == friend_id and current_user_type == friend_type:
+            return jsonify({"error": "Cannot add yourself as friend"}), 400
+            
+        # Check if friendship already exists
+        existing = Friendship.query.filter_by(
+            user_id=current_user.u_id,
+            friend_id=friend_id,
+            user_type=current_user_type,
+            friend_type=friend_type
+        ).first()
+        
+        if existing:
+            return jsonify({"error": "Already friends"}), 400
+            
+        # Create friendship (both ways)
+        friendship1 = Friendship(
+            user_id=current_user.u_id,
+            friend_id=friend_id,
+            user_type=current_user_type,
+            friend_type=friend_type
+        )
+        
+        # Create reciprocal friendship
+        friendship2 = Friendship(
+            user_id=friend_id,
+            friend_id=current_user.u_id,
+            user_type=friend_type,
+            friend_type=current_user_type
+        )
+        
+        db.session.add(friendship1)
+        db.session.add(friendship2)
+        db.session.commit()
+        
+        return jsonify({"message": "Friend added successfully"}), 201
+
+    except Exception as e:
+        print("Error occurred:", str(e))
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+############################################################################################################################
+
+# Heart Score Calculation
 @app.route('/submit-test', methods=['POST'])
 @jwt_required()  # Ensure the user is authenticated
 def submit_test():

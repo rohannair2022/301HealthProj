@@ -323,6 +323,67 @@ def add_friend():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+# Friend List
+@app.route('/list_friends', methods=['GET'])
+@jwt_required()
+def list_friends():
+    try:
+        user_email = get_jwt_identity()
+        
+        # Check if user is patient or doctor
+        patient = Patient.query.filter_by(email=user_email).first()
+        if patient:
+            # Get patient's friends (both patients and doctors)
+            patient_friends = Friendship.query.filter_by(
+                user_id=patient.u_id,
+                user_type='patient'
+            ).all()
+            
+            friends_list = []
+            for friendship in patient_friends:
+                friend_data = {}
+                if friendship.friend_type == 'patient':
+                    friend = Patient.query.get(friendship.friend_id)
+                    friend_data = {
+                        "u_id": friend.u_id,
+                        "name": friend.name,
+                        "type": "patient",
+                        "heart_score": friend.heart_score
+                    }
+                else:
+                    friend = Doctor.query.get(friendship.friend_id)
+                    friend_data = {
+                        "u_id": friend.u_id,
+                        "name": friend.name,
+                        "type": "doctor",
+                        "specialty": friend.specialty
+                    }
+                friends_list.append(friend_data)
+                
+            return jsonify({"friends": friends_list}), 200
+            
+        doctor = Doctor.query.filter_by(email=user_email).first()
+        if doctor:
+            # Get doctor's friends (only patients)
+            patient_friends = Friendship.query.filter_by(
+                user_id=doctor.u_id,
+                user_type='doctor'
+            ).all()
+            
+            friends_list = [{
+                "u_id": Patient.query.get(f.friend_id).u_id,
+                "name": Patient.query.get(f.friend_id).name,
+                "type": "patient",
+                "heart_score": Patient.query.get(f.friend_id).heart_score
+            } for f in patient_friends]
+            
+            return jsonify({"friends": friends_list}), 200
+            
+        return jsonify({"error": "User not found"}), 404
+        
+    except Exception as e:
+        print("Error occurred:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 ############################################################################################################################
 

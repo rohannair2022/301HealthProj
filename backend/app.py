@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:PostgresHuh@localhost:5432/postgres"# Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'your_secret_key' # os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 
@@ -134,11 +134,7 @@ def login():
 
     # Create token with user type information
     user_type = 'doctor' if isinstance(user, Doctor) else 'patient'
-    access_token = create_access_token(identity={
-        'email': user.email,
-        'type': user_type,
-        'u_id': user.u_id
-    })
+    access_token = create_access_token(identity=user.email)
 
     return jsonify({
         "message": "Login successful",

@@ -12,6 +12,24 @@ const Dashboard = () => {
     steps: 0,
   });
 
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:5001/logout', {}, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      localStorage.removeItem('token'); // Clear the token
+      navigate('/'); // Navigate to landing page
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if the backend call fails, we should still clear local storage and redirect
+      localStorage.removeItem('token');
+      navigate('/');
+    }
+  };
+
   const fetchUserData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -86,9 +104,13 @@ const Dashboard = () => {
             <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
             {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </li>
+          <li onClick={handleLogout} className='logout-btn'>
+            <i className='fas fa-sign-out-alt'></i>
+            Logout
+          </li>
         </ul>
       </nav>
-
+      
       {/* Main Content */}
       <main className='main-content'>
         {/* Top Header */}

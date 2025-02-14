@@ -34,50 +34,16 @@ const Login = () => {
         }
       );
 
-      const { access_token, first_login } = response.data;
+      const { access_token, is_first_login } = response.data;
 
       // Store the token in localStorage
       localStorage.setItem("token", access_token);
 
-      // If it's a first login, explicitly create the patient
-      if (first_login) {
-        try {
-          await axios.post(
-            "http://localhost:5001/create_patient",
-            {
-              email: email,
-              password: password,
-              name: email, // Using email as name if no specific name provided
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${access_token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-        } catch (createPatientError) {
-          console.error("Error creating patient:", createPatientError);
-          alert("Could not complete patient registration. Please try again.");
-          return;
-        }
-      }
-
-      // Navigate based on login status
-      switch (response.status) {
-        case 200:
-          // Fully registered existing user
-          navigate("/dashboard");
-          break;
-
-        case 201:
-        case 202:
-          // First-time login or incomplete profile
-          navigate("/test");
-          break;
-
-        default:
-          alert("An unexpected error occurred. Please try again.");
+      // Navigate based on whether this is a first login
+      if (is_first_login) {
+        navigate("/test");
+      } else {
+        navigate("/dashboard");
       }
     } catch (error) {
       // Handle different error scenarios
@@ -93,15 +59,13 @@ const Login = () => {
             alert("An error occurred. Please try again.");
         }
       } else if (error.request) {
-        // The request was made but no response received
         alert("No response from server. Please check your connection.");
       } else {
-        // Something happened in setting up the request
         alert("Error setting up the login request.");
       }
       console.error("Login error:", error);
     }
-  };
+};
   return (
     <div className="login-container">
       {/* <div className="login-image">

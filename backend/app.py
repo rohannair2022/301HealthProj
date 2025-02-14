@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
@@ -6,6 +6,7 @@ import os
 from flask_cors import CORS
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,6 +16,12 @@ CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
+
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {'pdf', 'docx'}
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -441,7 +448,7 @@ def remove_friend():
         db.session.rollback()
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
-    
+
 # Get All Users
 @app.route('/list_users', methods=['GET'])
 @jwt_required()
@@ -560,6 +567,7 @@ def get_user_type():
 ############################################################################################################################
 
 # Heart Score Calculation
+
 @app.route('/submit-test', methods=['POST'])
 @jwt_required()  # Ensure the user is authenticated
 def submit_test():
@@ -643,6 +651,112 @@ def logout():
     response = jsonify({"message": "Successfully logged out"})
     unset_jwt_cookies(response)
     return response, 200
+
+########################################################################################################################
+
+
+
+
+# Health Data Upload API 
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/upload', methods=['POST'])
+@jwt_required()
+def upload_file():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=str(user_email)).first()
+
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type. Only PDF and DOCX files are allowed.'}), 400
+
+    u_id = patient.u_id  # Get user ID
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(u_id))
+    os.makedirs(user_folder, exist_ok=True)
+
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(user_folder, filename)
+    
+    file.save(file_path)
+
+    return jsonify({'message': 'File uploaded successfully', 'filename': filename})
+
+@app.route('/files', methods=['GET'])
+@jwt_required()
+def list_files():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=str(user_email)).first()
+
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    u_id = patient.u_id
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(u_id))
+
+    if not os.path.exists(user_folder):
+        return jsonify({'files': []})
+
+    files = os.listdir(user_folder)
+
+    return jsonify({'files': files})
+
+@app.route('/files/<filename>', methods=['GET'])
+@jwt_required()
+def get_file(filename):
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=str(user_email)).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+        
+    u_id = patient.u_id
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(u_id))
+    
+    try:
+        return send_from_directory(user_folder, filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
+
+
+@app.route('/files/<filename>', methods=['DELETE'])
+@jwt_required()
+def delete_file(filename):
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=str(user_email)).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+        
+    u_id = patient.u_id
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(u_id))
+    file_path = os.path.join(user_folder, filename)
+    
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({"message": "File deleted successfully"}), 200
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        return jsonify({"error": f"Error deleting file: {str(e)}"}), 500
+
+
+
+
+
+
+
+
+
+###############################################################################################################
 
 # @app.route('/get_doctor', methods=['GET'])
 # @jwt_required()

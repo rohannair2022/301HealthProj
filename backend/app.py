@@ -644,6 +644,27 @@ def get_patient_data():
         }
     }), 200
 
+# Get doctor info
+@app.route('/get_doctor', methods=['GET'])
+@jwt_required()
+def get_doctor():
+    # Get user email from JWT token
+    user_email = get_jwt_identity()
+    
+    # Verify this user is requesting their own data
+    doctor = Doctor.query.filter_by(email=user_email).first()
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
+
+    return jsonify({
+        "doctor": {
+            "u_id": doctor.u_id,
+            "name": doctor.name,
+            "email": doctor.email,
+            "specialty": doctor.specialty if hasattr(doctor, 'specialty') else None
+        }
+    }), 200
+
 # Logout User  
 @app.route('/logout', methods=['POST'])
 @jwt_required()
@@ -653,9 +674,6 @@ def logout():
     return response, 200
 
 ########################################################################################################################
-
-
-
 
 # Health Data Upload API 
 
@@ -747,41 +765,7 @@ def delete_file(filename):
             return jsonify({"error": "File not found"}), 404
     except Exception as e:
         return jsonify({"error": f"Error deleting file: {str(e)}"}), 500
-
-
-
-
-
-
-
-
-
 ###############################################################################################################
-
-# @app.route('/get_doctor', methods=['GET'])
-# @jwt_required()
-# def get_doctor_data():
-#     # Get the identity from JWT token
-#     user_identity = get_jwt_identity()
-
-#     # Since we're storing dictionary in identity now, we need to get email from it
-#     if isinstance(user_identity, dict):
-#         user_email = user_identity.get('email')
-#     else:
-#         user_email = user_identity
-
-#     # Verify this user is requesting their own data
-#     doctor = Doctor.query.filter_by(email=str(user_email)).first()
-#     if not doctor:
-#         return jsonify({"error": "Doctor not found"}), 404
-
-#     return jsonify({
-#         "doctor": {
-#             "name": doctor.name,
-#             "specialty": doctor.specialty,
-#             "email": doctor.email
-#         }
-#     }), 200
 
 if __name__ == '__main__':
     with app.app_context():

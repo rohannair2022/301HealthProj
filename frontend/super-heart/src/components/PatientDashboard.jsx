@@ -3,6 +3,7 @@ import './Dashboard.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import FileUpload from './FileUpload';
+import AddFriendModal from './AddFriendModal';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -14,6 +15,10 @@ const PatientDashboard = () => {
   });
   const [isHome, setHome] = useState(true);
   const [isUpload, setUpload] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [error, setError] = useState('');
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -62,12 +67,86 @@ const PatientDashboard = () => {
     }
   }, [navigate]);
 
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/list_users', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setUsers(response.data.users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setError('Failed to fetch users');
+    }
+  };
+
+  const fetchFriends = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/list_friends', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setFriends(response.data.friends || []);
+    } catch (error) {
+      console.error('Error fetching friends:', error);
+      setError('Failed to fetch friends');
+    }
+  }, []);
+
+  const handleAddFriend = async (friendId, friendType) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        'http://localhost:5001/add_friend',
+        {
+          friend_id: friendId,
+          friend_type: friendType,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      // Refresh friends list after adding
+      fetchFriends();
+    } catch (error) {
+      console.error('Error adding friend:', error);
+      setError(error.response?.data?.error || 'Failed to add friend');
+    }
+  };
+
+  const handleRemoveFriend = async (friendId, friendType) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete('http://localhost:5001/remove_friend', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        data: {
+          friend_id: friendId,
+          friend_type: friendType,
+        },
+      });
+      // Refresh friends list after removing
+      fetchFriends();
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      setError(error.response?.data?.error || 'Failed to remove friend');
+    }
+  };
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     setIsDarkMode(savedTheme === 'dark');
     document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
     fetchUserData();
-  }, [fetchUserData]);
+    fetchFriends();
+  }, [fetchUserData, fetchFriends]);
 
   // Theme toggle function
   const toggleTheme = () => {
@@ -75,16 +154,6 @@ const PatientDashboard = () => {
     document.body.className = !isDarkMode ? 'dark-mode' : '';
     localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
   };
-
-  const friends = [
-    { id: 1, name: 'John Doe', heartScore: 8.5 },
-    { id: 2, name: 'Jane Smith', heartScore: 7.2 },
-    { id: 3, name: 'Mike Johnson', heartScore: 9.0 },
-  ];
-
-  const filteredFriends = friends.filter((friend) =>
-    friend.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className='app-container'>
@@ -101,7 +170,12 @@ const PatientDashboard = () => {
             <i className='fas fa-home'></i>
             Dashboard
           </li>
-          <li>
+          <li
+            onClick={() => {
+              setUpload(false);
+              setHome(false);
+            }}
+          >
             <i className='fas fa-user-friends'></i>
             Friends
           </li>
@@ -193,7 +267,10 @@ const PatientDashboard = () => {
               <div className='friends-section'>
                 <div className='section-header'>
                   <h3>Friends</h3>
-                  <button className='add-friend-btn'>
+                  <button
+                    className='add-friend-btn'
+                    onClick={() => setIsAddFriendModalOpen(true)}
+                  >
                     <i className='fas fa-plus'></i> Add Friend
                   </button>
                 </div>
@@ -206,21 +283,54 @@ const PatientDashboard = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
+                {error && <div className='error-message'>{error}</div>}
                 <div className='friends-list'>
-                  {filteredFriends.map((friend) => (
-                    <div key={friend.id} className='friend-item'>
-                      <div className='friend-info'>
-                        <i className='fas fa-user-circle'></i>
-                        <span className='friend-name'>{friend.name}</span>
-                      </div>
-                      <span className='friend-score'>
-                        Score: {friend.heartScore}
-                      </span>
-                    </div>
-                  ))}
+                  {friends.length > 0 ? (
+                    friends
+                      .filter((friend) =>
+                        friend.name
+                          .toLowerCase()
+                          .includes(searchTerm.toLowerCase())
+                      )
+                      .map((friend) => (
+                        <div key={friend.u_id} className='friend-item'>
+                          <div className='friend-info'>
+                            <i className='fas fa-user-circle'></i>
+                            <span className='friend-name'>{friend.name}</span>
+                            <span className={`friend-type ${friend.type}`}>
+                              {friend.type.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className='friend-actions'>
+                            <span className='friend-score'>
+                              {friend.type === 'patient'
+                                ? `Score: ${friend.heart_score}`
+                                : friend.specialty}
+                            </span>
+                            <button
+                              className='remove-friend-btn'
+                              onClick={() =>
+                                handleRemoveFriend(friend.u_id, friend.type)
+                              }
+                              title='Remove friend'
+                            >
+                              <i className='fas fa-times'></i>
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p>No friends added yet.</p>
+                  )}
                 </div>
               </div>
             </div>
+
+            <AddFriendModal
+              isOpen={isAddFriendModalOpen}
+              onClose={() => setIsAddFriendModalOpen(false)}
+              onAddFriend={handleAddFriend}
+            />
           </>
         ) : null}
       </main>

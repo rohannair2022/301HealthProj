@@ -453,48 +453,19 @@ def remove_friend():
 @app.route('/list_users', methods=['GET'])
 @jwt_required()
 def list_users():
-    try:
-        current_user_email = get_jwt_identity()
-        
-        # Get current user to exclude them from the list
-        current_user = Patient.query.filter_by(email=current_user_email).first()
-        current_user_type = 'patient'
-        
-        if not current_user:
-            current_user = Doctor.query.filter_by(email=current_user_email).first()
-            current_user_type = 'doctor'
-            
-        if not current_user:
-            return jsonify({"error": "Current user not found"}), 404
-
-        # Get existing friendships to exclude
-        existing_friends = Friendship.query.filter(
-            db.or_(
-                Friendship.user_id == current_user.u_id,
-                Friendship.friend_id == current_user.u_id
-            )
-        ).all()
-
-        # Create set of friend IDs
-        friend_ids = set()
-        for friendship in existing_friends:
-            if friendship.user_id == current_user.u_id:
-                friend_ids.add(friendship.friend_id)
-            else:
-                friend_ids.add(friendship.user_id)
-
-        # Initialize users list
-        users = []
-        
-        # If current user is a doctor, only show patients
-        if current_user_type == 'doctor':
-            patients = Patient.query.filter(
-                db.and_(
-                    ~Patient.u_id.in_(list(friend_ids))
-                )
-            ).all()
-            
-            for patient in patients:
+    current_user_email = get_jwt_identity()
+    
+    # First determine if current user is doctor or patient
+    current_user_doctor = Doctor.query.filter_by(email=current_user_email).first()
+    current_user_patient = Patient.query.filter_by(email=current_user_email).first()
+    
+    users = []
+    
+    if current_user_doctor:
+        # Doctors can only see patients
+        patients = Patient.query.all()
+        for patient in patients:
+            if patient.email != current_user_email:  # Don't include self
                 users.append({
                     "u_id": patient.u_id,
                     "name": patient.name,
@@ -502,33 +473,14 @@ def list_users():
                     "type": "patient",
                     "heart_score": patient.heart_score
                 })
+    elif current_user_patient:
+        # Patients can see both doctors and other patients
+        doctors = Doctor.query.all()
+        patients = Patient.query.all()
         
-        # If current user is a patient, show both patients and doctors
-        else:
-            patients = Patient.query.filter(
-                db.and_(
-                    Patient.u_id != current_user.u_id,
-                    ~Patient.u_id.in_(list(friend_ids))
-                )
-            ).all()
-
-            doctors = Doctor.query.filter(
-                db.and_(
-                    Doctor.u_id != current_user.u_id,
-                    ~Doctor.u_id.in_(list(friend_ids))
-                )
-            ).all()
-            
-            for patient in patients:
-                users.append({
-                    "u_id": patient.u_id,
-                    "name": patient.name,
-                    "email": patient.email,
-                    "type": "patient",
-                    "heart_score": patient.heart_score
-                })
-            
-            for doctor in doctors:
+        # Add doctors
+        for doctor in doctors:
+            if doctor.email != current_user_email:  # Don't include self
                 users.append({
                     "u_id": doctor.u_id,
                     "name": doctor.name,
@@ -536,12 +488,28 @@ def list_users():
                     "type": "doctor",
                     "specialty": doctor.specialty
                 })
-
-        return jsonify({"users": users}), 200
-
-    except Exception as e:
-        print("Error occurred:", str(e))
-        return jsonify({"error": str(e)}), 500
+        
+        # Add patients
+        for patient in patients:
+            # Don't include self and check if patient ID is same as any doctor ID
+            if patient.email != current_user_email:
+                # Check if this patient's ID matches any doctor's ID we've already added
+                is_duplicate_id = any(
+                    user["u_id"] == patient.u_id and user["type"] == "doctor" 
+                    for user in users
+                )
+                
+                # Only add if it's not a duplicate ID
+                if not is_duplicate_id:
+                    users.append({
+                        "u_id": patient.u_id,
+                        "name": patient.name,
+                        "email": patient.email,
+                        "type": "patient",
+                        "heart_score": patient.heart_score
+                    })
+    
+    return jsonify({"users": users})
 
 @app.route('/get_user_type', methods=['GET'])
 @jwt_required()
@@ -644,6 +612,27 @@ def get_patient_data():
         }
     }), 200
 
+# Get doctor info
+@app.route('/get_doctor', methods=['GET'])
+@jwt_required()
+def get_doctor():
+    # Get user email from JWT token
+    user_email = get_jwt_identity()
+    
+    # Verify this user is requesting their own data
+    doctor = Doctor.query.filter_by(email=user_email).first()
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
+
+    return jsonify({
+        "doctor": {
+            "u_id": doctor.u_id,
+            "name": doctor.name,
+            "email": doctor.email,
+            "specialty": doctor.specialty if hasattr(doctor, 'specialty') else None
+        }
+    }), 200
+
 # Logout User  
 @app.route('/logout', methods=['POST'])
 @jwt_required()
@@ -653,9 +642,6 @@ def logout():
     return response, 200
 
 ########################################################################################################################
-
-
-
 
 # Health Data Upload API 
 
@@ -747,41 +733,7 @@ def delete_file(filename):
             return jsonify({"error": "File not found"}), 404
     except Exception as e:
         return jsonify({"error": f"Error deleting file: {str(e)}"}), 500
-
-
-
-
-
-
-
-
-
 ###############################################################################################################
-
-# @app.route('/get_doctor', methods=['GET'])
-# @jwt_required()
-# def get_doctor_data():
-#     # Get the identity from JWT token
-#     user_identity = get_jwt_identity()
-
-#     # Since we're storing dictionary in identity now, we need to get email from it
-#     if isinstance(user_identity, dict):
-#         user_email = user_identity.get('email')
-#     else:
-#         user_email = user_identity
-
-#     # Verify this user is requesting their own data
-#     doctor = Doctor.query.filter_by(email=str(user_email)).first()
-#     if not doctor:
-#         return jsonify({"error": "Doctor not found"}), 404
-
-#     return jsonify({
-#         "doctor": {
-#             "name": doctor.name,
-#             "specialty": doctor.specialty,
-#             "email": doctor.email
-#         }
-#     }), 200
 
 if __name__ == '__main__':
     with app.app_context():

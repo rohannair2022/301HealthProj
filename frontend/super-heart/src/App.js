@@ -4,7 +4,8 @@ import './App.css';
 import Login from './components/Login.js';
 import Landing from './components/Landing';
 import Test from './components/Test';
-import Dashboard from './components/Dashboard';
+import PatientDashboard from './components/PatientDashboard';
+import DoctorDashboard from './components/DoctorDashboard';
 import Register from './components/Register';
 
 function App() {
@@ -15,7 +16,8 @@ function App() {
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/test' element={<Test />} />
-        <Route path='/dashboard' element={<Dashboard />} />
+        <Route path='/patient-dashboard' element={<PatientDashboard />} />
+        <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
       </Routes>
     </Router>
   );

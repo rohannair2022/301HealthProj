@@ -7,11 +7,12 @@
 
 /* Add these new styles at the top of your CSS file */
 :root {
-  --bg-primary: #f8fafa;
-  --bg-secondary: #ffffff;
-  --text-primary: #3a6462;
-  --text-secondary: #4f7f7b;
-  --border-color: #cce3e3;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f6fa;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --text-primary: #2d3436;
+  --text-secondary: #636e72;
+  --border-color: #dfe6e9;
   --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   --highlight-color: #77c6c2;
 }
@@ -83,21 +84,20 @@
 
 .section-header h3 {
   margin: 0;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .section-header h5 {
   margin: 20px 0 10px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
-
-
-.dark-mode {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
+body.dark-mode {
+  --bg-primary: #1a1b1e;
+  --bg-secondary: #2d2e32;
+  --bg-hover: rgba(255, 255, 255, 0.05);
   --text-primary: #ffffff;
-  --text-secondary: #e6e6e6;
+  --text-secondary: #a0a0a0;
   --border-color: #404040;
   --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   --highlight-color: #5ba89e;
@@ -359,19 +359,22 @@ body {
 }
 
 .add-friend-btn {
-  background-color: var(--highlight-color);
-  color: white;
-  border: none;
-  padding: 8px 15px;
+  align-self: center;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  transition: all 0.2s ease;
+  font-size: 0.9em;
+  margin-left: 16px;
+  white-space: nowrap;
 }
 
 .add-friend-btn:hover {
-  background-color: #5ba89e;
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
 }
 
 .search-bar {
@@ -404,22 +407,24 @@ body {
 }
 
 .friend-item {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
   border-bottom: 1px solid var(--border-color);
+}
+
+.friend-item:hover {
+  background-color: var(--bg-hover);
 }
 
 .friend-info {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.friend-info i {
-  font-size: 1.5rem;
-  color: var(--text-secondary);
+  gap: 12px;
+  color: var(--text-primary);
 }
 
 .friend-name {
@@ -427,9 +432,67 @@ body {
   font-weight: 500;
 }
 
+.friend-type {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  font-weight: 600;
+  background-color: var(--bg-hover);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  text-transform: uppercase;
+}
+
+/* Add specific colors for different types */
+.friend-type.patient {
+  background-color: rgba(72, 219, 251, 0.1);
+  color: #48dbfb;
+}
+
+.friend-type.doctor {
+  background-color: rgba(162, 155, 254, 0.1);
+  color: #a29bfe;
+}
+
+.friend-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-left: 24px;
+}
+
 .friend-score {
-  color: var(--highlight-color);
-  font-weight: bold;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.remove-friend-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  margin-left: 8px;
+  background-color: rgba(255, 68, 68, 0.1);
+}
+
+.remove-friend-btn i {
+  font-size: 12px;
+}
+
+.remove-friend-btn:hover {
+  color: #fff;
+  background-color: #ff4444;
+  transform: scale(1.1);
 }
 
 /* Add smooth transitions */
@@ -508,4 +571,193 @@ body {
 
 .delete-btn:hover {
   background-color: #ffebee;
+}
+
+/* Add Friend Modal Styles */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 5px;
+}
+
+.close-button:hover {
+  color: var(--text-primary);
+}
+
+.users-list {
+  margin-top: 20px;
+  max-height: 50vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+.no-users-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.no-users-message i {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+
+.no-users-message p {
+  font-size: 1.1em;
+  margin: 0;
+}
+
+.user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.user-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1;
+}
+
+.user-info i {
+  font-size: 2.5rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.user-primary-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-name {
+  font-size: 1.1em;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.user-type {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  font-weight: 600;
+  background-color: var(--bg-hover);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.user-email {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  opacity: 0.8;
+  margin-bottom: 2px;
+}
+
+.specialty,
+.heart-score {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+.add-friend-btn {
+  align-self: center;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9em;
+  margin-left: 16px;
+  white-space: nowrap;
+}
+
+.add-friend-btn:hover {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+}
+
+/* Update search bar styles */
+.search-bar {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  margin: 16px 0;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+.search-bar input {
+  background-color: transparent;
+  color: var(--text-primary);
+}
+
+.search-bar input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Empty state message */
+.friends-list p {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
 }

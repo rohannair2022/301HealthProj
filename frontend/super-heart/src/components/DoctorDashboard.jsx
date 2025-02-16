@@ -72,6 +72,48 @@ const DoctorDashboard = () => {
       setError('Failed to fetch friends');
     }
   };
+  const handleFitbitLogin = async () => {
+    try {
+      // First, perform login
+      const token = localStorage.getItem('token');
+      const codeCreation = await axios.get(
+        'http://localhost:5001/connect_watch',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const client_id = codeCreation.data.client_id;
+      const code_challenge = codeCreation.data.code_challenge;
+      const scope = 'activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight';
+
+      // Redirect to Fitbit login page
+      const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${client_id}&scope=${scope}&code_challenge_method=S256&code_challenge=${code_challenge}`;
+      window.location.href = authUrl;
+
+    } catch (error) {
+      // Handle different error scenarios
+      if (error.response) {
+        switch (error.response.status) {
+          case 400:
+            alert('Please provide both email and password.');
+            break;
+          case 401:
+            alert('Invalid credentials. Please try again.');
+            break;
+          default:
+            alert('An error occurred. Please try again.');
+        }
+      } else if (error.request) {
+        alert('No response from server. Please check your connection.');
+      } else {
+        alert('Error setting up the login request.');
+      }
+      console.error('Login error:', error);
+    }
+  };
 
   const handleAddFriend = async (friendId, friendType) => {
     try {
@@ -145,6 +187,14 @@ const DoctorDashboard = () => {
           <li onClick={toggleTheme} className='theme-toggle'>
             <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
             {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+          </li>
+          <li
+            onClick={() => {
+              handleFitbitLogin();
+            }}
+          >
+            <i className='fas fa-heart'></i>
+            Connect Fitbit
           </li>
           <li onClick={handleLogout} className='logout-btn'>
             <i className='fas fa-sign-out-alt'></i>

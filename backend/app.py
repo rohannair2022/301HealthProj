@@ -1,12 +1,15 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
-import os
+import os, base64, hashlib, json
 from flask_cors import CORS
+import requests
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
+from flask_restx import Api
+from flask_restx import Namespace
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,10 +19,11 @@ CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
-
+api = Api(app, version='1.0', title='Health API', description='A simple Health API')
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 UPLOAD_FOLDER = 'uploads'
+TOKEN_FILE_PATH = 'fitbit_token.json'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -734,6 +738,46 @@ def delete_file(filename):
     except Exception as e:
         return jsonify({"error": f"Error deleting file: {str(e)}"}), 500
 ###############################################################################################################
+
+# Fitbit API Integration
+@app.route('/connect_watch', methods=['GET'])
+@jwt_required()
+def connect_watch():
+    verifier = base64.b64encode(os.urandom(32)).decode().rstrip("=")
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+    os.environ["state"] = verifier
+    client_id = os.getenv("CLIENT_ID")
+    return jsonify({'code_challenge': challenge, 'code_challenge_method': "S256", 'client_id': client_id})
+
+@app.route('/watch', methods=['GET'])
+def callback():
+    code = request.args.get('code')
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+    redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
+    url = "https://api.fitbit.com/oauth2/token"
+    token_response = requests.post(url, data={
+        'client_id': client_id,
+        'grant_type': 'authorization_code',
+        'code': code,
+        'code_verifier': os.getenv("state"),
+        'redirect_uri': redirect_uri
+    }, headers={
+        'Authorization': 'Basic ' + base64.b64encode(f"{client_id}:{client_secret}".encode()).decode(),
+        'Content-Type': 'application/x-www-form-urlencoded'
+    })
+    if token_response.status_code == 200:
+        access_token = token_response.json()['access_token']
+        refresh_token = token_response.json()['refresh_token']
+        ACCESS_TOKEN = access_token
+        with open(TOKEN_FILE_PATH, "w") as file:
+            json.dump({'access_token': access_token, 'refresh_token': refresh_token}, file)
+        print("Successfully connected to Fitbit")
+        return jsonify({"message": "Successfully connected to Fitbit"})
+    else:
+        print("Failed to connect to Fitbit", token_response.json(), token_response.status_code)
+        return jsonify({"error": "Failed to connect to Fitbit"}), 500
+
 
 if __name__ == '__main__':
     with app.app_context():

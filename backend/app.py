@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, redirect, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
@@ -602,7 +602,15 @@ def submit_test():
 def get_patient_data():
     # Get the email from the JWT token for verification
     user_email = get_jwt_identity()
-
+    
+    if os.getenv('fitbit_user') == user_email:
+        response = get_fitbit_data(2)
+        if response.status_code != 200:
+            print("Failed to fetch Fitbit data")
+        else:
+            print("Fitbit data fetched successfully")
+    # else:
+    #     print("User email:", user_email)
     # Verify this user is requesting their own data
     patient = Patient.query.filter_by(email=str(user_email)).first()
     if not patient:
@@ -746,6 +754,9 @@ def connect_watch():
     verifier = base64.b64encode(os.urandom(32)).decode().rstrip("=")
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
     os.environ["state"] = verifier
+    # session['state'] = verifier
+    # session['fitbit_user'] = get_jwt_identity()
+    os.environ["fitbit_user"] = get_jwt_identity()
     client_id = os.getenv("CLIENT_ID")
     return jsonify({'code_challenge': challenge, 'code_challenge_method': "S256", 'client_id': client_id})
 
@@ -756,28 +767,120 @@ def callback():
     client_secret = os.getenv("CLIENT_SECRET")
     redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
     url = "https://api.fitbit.com/oauth2/token"
+    verifier = os.getenv("state")
     token_response = requests.post(url, data={
         'client_id': client_id,
         'grant_type': 'authorization_code',
         'code': code,
-        'code_verifier': os.getenv("state"),
+        'code_verifier': verifier,
         'redirect_uri': redirect_uri
     }, headers={
         'Authorization': 'Basic ' + base64.b64encode(f"{client_id}:{client_secret}".encode()).decode(),
         'Content-Type': 'application/x-www-form-urlencoded'
     })
     if token_response.status_code == 200:
+        User = os.getenv("fitbit_user")
+
         access_token = token_response.json()['access_token']
         refresh_token = token_response.json()['refresh_token']
         ACCESS_TOKEN = access_token
         with open(TOKEN_FILE_PATH, "w") as file:
             json.dump({'access_token': access_token, 'refresh_token': refresh_token}, file)
         print("Successfully connected to Fitbit")
-        return jsonify({"message": "Successfully connected to Fitbit"})
+        return redirect("http://localhost:3001/patient-dashboard")
     else:
         print("Failed to connect to Fitbit", token_response.json(), token_response.status_code)
         return jsonify({"error": "Failed to connect to Fitbit"}), 500
 
+
+def get_fitbit_data(tries=1):
+    with open(TOKEN_FILE_PATH, "r") as file:
+        tokens = json.load(file)
+
+    print("Fetching Fitbit data...")
+    patient = Patient.query.filter_by(email=os.getenv('fitbit_user')).first()
+    access_token = tokens['access_token']
+    url_list = ["https://api.fitbit.com/1/user/-/activities/heart/date/today/1d/5min.json", "https://api.fitbit.com/1/user/-/activities/steps/date/today/1d.json", "https://api.fitbit.com/1/user/-/profile.json"]
+    for url in url_list:
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json',
+            'Accept-Language': 'en_US'
+        })
+        if response.status_code == 200:
+            data = response.json()
+            # print(data)
+            if 'heart' in url:
+                try:
+                    heart_rate = data['activities-heart-intraday']['dataset'][-1]['value']
+                    patient.avg_heartrate = heart_rate
+                    db.session.commit()
+                    return jsonify({"message": "Data fetched successfully"}), 200
+                except:
+                    return jsonify({"error": "Data not present"}), 290
+            elif 'steps' in url:
+                try:
+                    steps = data['activities-steps'][0]['value']
+                    patient.steps = steps
+                    db.session.commit()
+                    return jsonify({"message": "Data fetched successfully"}), 200
+                except:
+                    return jsonify({"error": "Data not present"}), 290
+            # elif 'profile' in url:
+            #     try:
+            #         weight = str(data['weight'])+str(data['weightUnit'])
+            #         height = str(data['height'])+str(data['heightUnit'])
+            #         patient.weight = name
+            #         db.session.commit()
+            #         return jsonify({"message": "Data fetched successfully"}), 200
+            #     except:
+            #         return jsonify({"error": "Data not present"}), 290
+        else:
+            if response.status_code == 401:
+                access_token = Get_New_Access_Token(os.getenv("CLIENT_ID"), os.getenv("CLIENT_SECRET"))
+                if access_token and tries > 0:
+                    return get_fitbit_data(tries - 1)
+            return jsonify({"error": "Failed to fetch data from Fitbit"}), 500
+
+
+def refresh_fitbit_tokens(client_id, client_secret, refresh_token):
+    print("Attempting to refresh tokens...")
+    url = "https://api.fitbit.com/oauth2/token"
+    headers = {
+        "Authorization": "Basic " + base64.b64encode((client_id + ":" + client_secret).encode()).decode(),
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token
+    }
+    json_data = requests.post(url, headers=headers, data=data)
+    if json_data.status_code != 200:
+        print("Failed to refresh Fitbit tokens", json_data.json(), json_data.status_code)
+        return None, None
+    access_token = json_data["access_token"]
+    new_refresh_token = json_data["refresh_token"]
+    tokens = {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token
+    }
+    with open(TOKEN_FILE_PATH, "w") as file:
+        json.dump(tokens, file)
+    print("Fitbit token refresh successful!")
+    return access_token, new_refresh_token
+
+def load_tokens_from_file():
+    with open(TOKEN_FILE_PATH, "r") as file:
+        tokens = json.load(file)
+        return tokens.get("access_token"), tokens.get("refresh_token")
+
+def Get_New_Access_Token(client_id, client_secret):
+    try:
+        access_token, refresh_token = load_tokens_from_file()
+    except FileNotFoundError:
+        refresh_token = input("No token file found. Please enter a valid refresh token : ")
+    access_token, refresh_token = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+    return access_token
 
 if __name__ == '__main__':
     with app.app_context():

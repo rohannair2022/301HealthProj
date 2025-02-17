@@ -62,7 +62,7 @@ const PatientDashboard = () => {
 
       // Redirect to Fitbit login page
       const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${client_id}&scope=${scope}&code_challenge_method=S256&code_challenge=${code_challenge}`;
-      window.location.href = authUrl;
+      window.open(authUrl, '_blank');
 
     } catch (error) {
       // Handle different error scenarios
@@ -108,6 +108,7 @@ const PatientDashboard = () => {
         navigate('/login');
       }
     }
+    setTimeout(fetchUserData, 600000);
   }, [navigate]);
 
   const fetchUsers = async () => {

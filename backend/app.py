@@ -605,8 +605,8 @@ def get_patient_data():
     
     if os.getenv('fitbit_user') == user_email:
         response = get_fitbit_data(2)
-        if response.status_code != 200:
-            print("Failed to fetch Fitbit data")
+        if response[1] != 200:
+            print("Failed to fetch Fitbit data/ Data is invalid")
         else:
             print("Fitbit data fetched successfully")
     # else:
@@ -787,7 +787,7 @@ def callback():
         with open(TOKEN_FILE_PATH, "w") as file:
             json.dump({'access_token': access_token, 'refresh_token': refresh_token}, file)
         print("Successfully connected to Fitbit")
-        return redirect("http://localhost:3001/patient-dashboard")
+        return redirect("http://localhost:3001/patient-dashboard") # Change this to 3000 for the frontend
     else:
         print("Failed to connect to Fitbit", token_response.json(), token_response.status_code)
         return jsonify({"error": "Failed to connect to Fitbit"}), 500
@@ -842,7 +842,7 @@ def get_fitbit_data(tries=1):
                     return get_fitbit_data(tries - 1)
             return jsonify({"error": "Failed to fetch data from Fitbit"}), 500
 
-
+# Refresh Fitbit Tokens Sqeuence
 def refresh_fitbit_tokens(client_id, client_secret, refresh_token):
     print("Attempting to refresh tokens...")
     url = "https://api.fitbit.com/oauth2/token"
@@ -881,6 +881,8 @@ def Get_New_Access_Token(client_id, client_secret):
         refresh_token = input("No token file found. Please enter a valid refresh token : ")
     access_token, refresh_token = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
     return access_token
+
+########################################################################################################################
 
 if __name__ == '__main__':
     with app.app_context():

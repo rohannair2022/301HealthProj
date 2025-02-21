@@ -16,7 +16,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 api = Api(app, version='1.0', title='Health API', description='A simple Health API')
@@ -42,6 +42,7 @@ class Patient(db.Model):
     avg_heartrate = db.Column(db.Integer)
     heart_score = db.Column(db.Integer, default=0)
     steps = db.Column(db.Integer)
+    phone_number = db.Column(db.Text)
 
 class Doctor(db.Model):
     __tablename__ = 'doctor'
@@ -51,6 +52,7 @@ class Doctor(db.Model):
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
     specialty = db.Column(db.Text)
+    phone_number = db.Column(db.Text)
 
 class Friendship(db.Model):
     __tablename__ = 'friendship'
@@ -77,7 +79,9 @@ class Friendship(db.Model):
                                             "Friendship.friend_type=='doctor')")
 
 
-# UPDATED ROUTES
+
+############################################################################################################################
+# LOGIN/SIGNUP ROUTES
 @app.route('/register/<type>', methods=['POST'])
 def register(type):
     if type not in ['patient', 'doctor']:
@@ -198,6 +202,11 @@ def protected():
 #         }
 #     }), 200
 
+
+############################################################################################################################
+# PATIENT ROUTES
+
+# Patient Creation
 @app.route('/create_patient', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
 # @jwt_required()
@@ -256,6 +265,38 @@ def remove_patient(u_id):
 
     return jsonify({"message": "Patient and related friendships removed successfully"}), 200
 
+
+# Patient Editing 
+@app.route('/edit_patient/<int:u_id>', methods=['POST'])
+# Uncomment the next line if you want to protect this route with JWT authentication
+# @jwt_required()
+def edit_patient(u_id):
+    data = request.get_json()
+
+    patient = Patient.query.get(u_id)
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    if 'name' in data:
+        patient.name = data['name']
+    if 'email' in data:
+        patient.email = data['email']
+    if 'password' in data:
+        patient.password = data['password']
+    if 'avg_heartrate' in data:
+        patient.avg_heartrate = data['avg_heartrate']
+    if 'heart_score' in data:
+        patient.heart_score = data['heart_score']
+    if 'steps' in data:
+        patient.steps = data['steps']
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Patient updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
 
 ############################################################################################################################
 # FRIEND ROUTES
@@ -613,6 +654,9 @@ def get_patient_data():
             "name": patient.name,
             "heart_score": patient.heart_score,
             "steps": patient.steps,
+            "email": patient.email,
+            "password": patient.password,
+            "u_id": patient.u_id
         }
     }), 200
 
@@ -714,7 +758,6 @@ def get_file(filename):
         return send_from_directory(user_folder, filename)
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
-
 
 @app.route('/files/<filename>', methods=['DELETE'])
 @jwt_required()

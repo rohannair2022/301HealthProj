@@ -1,0 +1,763 @@
+/* Reset default margins and padding */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Add these new styles at the top of your CSS file */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f6fa;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --text-primary: #2d3436;
+  --text-secondary: #636e72;
+  --border-color: #dfe6e9;
+  --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --highlight-color: #77c6c2;
+}
+
+.upload-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.upload-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+}
+
+.upload-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.file-input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+}
+
+.upload-button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.upload-button:hover {
+  background-color: #0056b3;
+}
+
+.files-list {
+  margin-top: 20px;
+  text-align: left;
+}
+
+.files-list ul {
+  list-style: none;
+  padding: 0;
+}
+
+.files-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.section-header {
+  margin-bottom: 15px;
+}
+
+.section-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.section-header h5 {
+  margin: 20px 0 10px;
+  color: var(--text-secondary);
+}
+
+body.dark-mode {
+  --bg-primary: #1a1b1e;
+  --bg-secondary: #2d2e32;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #404040;
+  --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --highlight-color: #5ba89e;
+}
+
+body {
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease;
+}
+
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+}
+
+/* Side Navigation */
+.side-nav {
+  width: 250px;
+  background-color: var(--bg-secondary);
+  padding: 20px;
+  border-right: 1px solid var(--border-color);
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  margin-bottom: 30px;
+  padding: 10px;
+}
+
+.nav-links {
+  list-style: none;
+  padding: 0;
+}
+
+.nav-links li {
+  padding: 15px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  border-radius: 8px;
+}
+
+.nav-links li i {
+  margin-right: 10px;
+}
+
+.nav-links li.active {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.nav-links li:hover {
+  background-color: var(--bg-primary);
+}
+
+.theme-toggle {
+  cursor: pointer;
+  margin-top: auto !important;
+  padding: 15px;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.theme-toggle:hover {
+  background-color: var(--bg-primary);
+}
+
+.theme-toggle i {
+  margin-right: 10px;
+  color: var(--highlight-color);
+}
+
+/* Main Content - Adjust margin to account for fixed sidebar */
+.main-content {
+  flex: 1;
+  margin-left: 250px; /* Match sidebar width */
+  padding: 20px;
+  width: calc(100% - 250px);
+}
+
+/* Top Header */
+.top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  margin-bottom: 30px;
+  box-shadow: var(--card-shadow);
+}
+
+.header-search {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-primary);
+  padding: 8px 15px;
+  border-radius: 8px;
+  width: 300px;
+}
+
+.header-search input {
+  border: none;
+  background: none;
+  margin-left: 10px;
+  width: 100%;
+  color: var(--text-primary);
+}
+
+.header-search input:focus {
+  outline: none;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-right i {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* Dashboard Content */
+.dashboard-content {
+  padding: 20px;
+}
+
+.dashboard-header {
+  margin-bottom: 30px;
+}
+
+.dashboard-header h2 {
+  color: var(--text-primary);
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.dashboard-header p {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+/* Dashboard Grid - Ensure horizontal layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* Force 4 columns */
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.logout-btn {
+  margin-top: 20px !important;
+  color: #ff4757 !important;
+  border-top: 1px solid var(--border-color);
+}
+
+.logout-btn:hover {
+  background-color: rgba(255, 71, 87, 0.1) !important;
+}
+
+.logout-btn i {
+  color: #ff4757 !important;
+}
+
+@media (max-width: 768px) {
+  .logout-btn {
+    margin-top: 10px !important;
+    padding: 12px !important;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns on smaller screens */
+  }
+}
+
+@media (max-width: 768px) {
+  .side-nav {
+    position: relative;
+    width: 100%;
+    height: auto;
+  }
+
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr; /* Single column on mobile */
+  }
+
+  .app-container {
+    flex-direction: column;
+  }
+}
+
+.dashboard-card {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: var(--card-shadow);
+}
+
+.dashboard-card h3 {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+}
+
+.dashboard-card .score,
+.dashboard-card .measurement {
+  font-size: 2rem;
+  color: var(--highlight-color);
+  font-weight: bold;
+  margin: 15px 0;
+}
+
+.dashboard-card p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Friends Section */
+.friends-section {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: var(--card-shadow);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h3 {
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.add-friend-btn {
+  align-self: center;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9em;
+  margin-left: 16px;
+  white-space: nowrap;
+}
+
+.add-friend-btn:hover {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-primary);
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.search-bar i {
+  color: var(--text-secondary);
+}
+
+.search-bar input {
+  border: none;
+  background: none;
+  margin-left: 10px;
+  width: 100%;
+}
+
+.search-bar input:focus {
+  outline: none;
+}
+
+.friends-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.friend-item {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.friend-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.friend-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+}
+
+.friend-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.friend-type {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  font-weight: 600;
+  background-color: var(--bg-hover);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  text-transform: uppercase;
+}
+
+/* Add specific colors for different types */
+.friend-type.patient {
+  background-color: rgba(72, 219, 251, 0.1);
+  color: #48dbfb;
+}
+
+.friend-type.doctor {
+  background-color: rgba(162, 155, 254, 0.1);
+  color: #a29bfe;
+}
+
+.friend-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-left: 24px;
+}
+
+.friend-score {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.remove-friend-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  margin-left: 8px;
+  background-color: rgba(255, 68, 68, 0.1);
+}
+
+.remove-friend-btn i {
+  font-size: 12px;
+}
+
+.remove-friend-btn:hover {
+  color: #fff;
+  background-color: #ff4444;
+  transform: scale(1.1);
+}
+
+/* Add smooth transitions */
+.app-container,
+.side-nav,
+.dashboard-card,
+.friends-section,
+.top-header {
+  transition: all 0.3s ease;
+}
+
+/* Add these new styles for the steps progress */
+.steps-progress {
+  margin-top: 10px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: var(--bg-primary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--highlight-color);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.steps-progress p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.file-item {
+  margin: 8px 0;
+  list-style: none;
+}
+
+.file-link {
+  background: none;
+  border: none;
+  color: #4f7f7b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  width: 100%;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.file-link:hover {
+  background-color: #f8f9fa;
+  text-decoration: underline;
+}
+
+.file-link i {
+  color: #6c757d;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.delete-btn:hover {
+  background-color: #ffebee;
+}
+
+/* Add Friend Modal Styles */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 5px;
+}
+
+.close-button:hover {
+  color: var(--text-primary);
+}
+
+.users-list {
+  margin-top: 20px;
+  max-height: 50vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+.no-users-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.no-users-message i {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+
+.no-users-message p {
+  font-size: 1.1em;
+  margin: 0;
+}
+
+.user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.user-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1;
+}
+
+.user-info i {
+  font-size: 2.5rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.user-primary-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-name {
+  font-size: 1.1em;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.user-type {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  font-weight: 600;
+  background-color: var(--bg-hover);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.user-email {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  opacity: 0.8;
+  margin-bottom: 2px;
+}
+
+.specialty,
+.heart-score {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+.add-friend-btn {
+  align-self: center;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9em;
+  margin-left: 16px;
+  white-space: nowrap;
+}
+
+.add-friend-btn:hover {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+}
+
+/* Update search bar styles */
+.search-bar {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  margin: 16px 0;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+.search-bar input {
+  background-color: transparent;
+  color: var(--text-primary);
+}
+
+.search-bar input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Empty state message */
+.friends-list p {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
+}

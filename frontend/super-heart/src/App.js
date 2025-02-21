@@ -7,6 +7,8 @@ import Test from './components/Test';
 import PatientDashboard from './components/PatientDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import Register from './components/Register';
+import PatientProfilePage from './components/PatientProfilePage.jsx';
+import DoctorProfilePage from './components/DoctorProfilePage.jsx';
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
         <Route path='/test' element={<Test />} />
         <Route path='/patient-dashboard' element={<PatientDashboard />} />
         <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
+        <Route path='/patient-profile' element={<PatientProfilePage />} />
+        <Route path='/doctor-profile' element={<DoctorProfilePage />} />
       </Routes>
     </Router>
   );

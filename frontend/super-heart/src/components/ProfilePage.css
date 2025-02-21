@@ -1,0 +1,231 @@
+.back-button {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background-color: #0369a1;
+    color: white;
+    padding: 8px;
+    border-radius: 20px;
+    transition: background-color 0.3s ease;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.back-button:hover {
+    background-color: #075985;
+}
+
+.back-button svg {
+    font-size: 24px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.container {
+    width: 90vw;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+}
+
+
+
+
+
+
+
+.info-spot {
+    background-color: var(--bg-secondary);
+    filter: brightness(95%);
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: var(--card-shadow);
+    width: 100%;
+    text-align: center;
+    position: relative;
+    transition: filter 0.3s ease;
+}
+
+.info-spot:hover {
+    filter: brightness(85%);
+}
+
+.edit-icon {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.edit-icon:hover {
+    opacity: 1;
+}
+
+
+
+
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* Ensure the modal is on top */
+}
+
+.modal input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+.modal-actions {
+    padding-top: 10px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.modal-actions button {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: #007BFF;
+    color: white;
+    cursor: pointer;
+    flex: 1; 
+    margin: 0 5px;
+}
+
+.modal-actions button:hover {
+    background-color: #0056b3;
+}
+
+.modal-actions button:first-child {
+    background-color: #ccc;
+    color: #333;
+}
+
+.modal-actions button:first-child:hover {
+    background-color: #aaa;
+}
+
+
+.name-modal {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+
+.email-modal {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+  
+  
+.password-modal {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.edit-name-icon {
+    font-size: 18px;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.edit-name-icon:hover {
+    opacity: 1;
+}
+
+
+
+
+
+
+.name-container {
+    display: flex;
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.profile-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.profile-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-icon {
+    font-size: clamp(100px, 15vw, 200px);
+}

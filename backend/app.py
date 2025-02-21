@@ -15,7 +15,7 @@ from flask_restx import Namespace
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:3000"])
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
@@ -42,7 +42,7 @@ class Patient(db.Model):
     avg_heartrate = db.Column(db.Integer)
     heart_score = db.Column(db.Integer, default=0)
     steps = db.Column(db.Integer)
-    phone_number = db.Column(db.Text)
+    # phone_number = db.Column(db.Text) # Next Sprint
 
 class Doctor(db.Model):
     __tablename__ = 'doctor'
@@ -52,7 +52,7 @@ class Doctor(db.Model):
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
     specialty = db.Column(db.Text)
-    phone_number = db.Column(db.Text)
+    # phone_number = db.Column(db.Text) # Next Sprint
 
 class Friendship(db.Model):
     __tablename__ = 'friendship'
@@ -282,7 +282,8 @@ def edit_patient(u_id):
     if 'email' in data:
         patient.email = data['email']
     if 'password' in data:
-        patient.password = data['password']
+        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+        patient.password = hashed_password
     if 'avg_heartrate' in data:
         patient.avg_heartrate = data['avg_heartrate']
     if 'heart_score' in data:
@@ -677,9 +678,38 @@ def get_doctor():
             "u_id": doctor.u_id,
             "name": doctor.name,
             "email": doctor.email,
-            "specialty": doctor.specialty if hasattr(doctor, 'specialty') else None
+            "specialty": doctor.specialty,
+            "password": doctor.password
         }
     }), 200
+
+# Doctor Editing 
+@app.route('/edit_doctor/<int:u_id>', methods=['POST'])
+# Uncomment the next line if you want to protect this route with JWT authentication
+# @jwt_required()
+def edit_doctor(u_id):
+    data = request.get_json()
+
+    doctor = Doctor.query.get(u_id)
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
+
+    if 'name' in data:
+        doctor.name = data['name']
+    if 'email' in data:
+        doctor.email = data['email']
+    if 'password' in data:
+        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+        doctor.password = hashed_password
+    if 'specialty' in data:
+        doctor.specialty = data['specialty']
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Doctor updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 # Logout User  
 @app.route('/logout', methods=['POST'])

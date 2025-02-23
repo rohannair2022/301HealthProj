@@ -11,6 +11,8 @@ const DoctorDashboard = () => {
     name: '',
     specialty: '',
     email: '',
+    password: '',
+    u_id: null
   });
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [friends, setFriends] = useState([]);
@@ -171,6 +173,11 @@ const DoctorDashboard = () => {
     localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
   };
 
+    // Profile page navigation
+  const goToProfile = () => {
+    navigate('/doctor-profile', { state: { doctorData } });
+  };
+
   return (
     <div className='app-container'>
       <nav className='side-nav'>
@@ -207,7 +214,11 @@ const DoctorDashboard = () => {
         <header className='top-header'>
           <div className='header-right'>
             <i className='fas fa-bell'></i>
-            <i className='fas fa-user-circle'></i>
+            <i
+              className="fas fa-user-circle"
+              onClick={goToProfile}
+              style={{ cursor: 'pointer' }}
+            ></i>
           </div>
         </header>
 

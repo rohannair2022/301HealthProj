@@ -12,6 +12,10 @@ const PatientDashboard = () => {
   const [userData, setUserData] = useState({
     heart_score: 0,
     steps: 0,
+    name: '',
+    email: '',
+    password: '',
+    u_id: null
   });
   const [isHome, setHome] = useState(true);
   const [isUpload, setUpload] = useState(false);
@@ -100,8 +104,13 @@ const PatientDashboard = () => {
         setUserData({
           heart_score: response.data.patient.heart_score || 0,
           steps: response.data.patient.steps || 0,
+          name: response.data.patient.name || '?',
+          email: response.data.patient.email || '?',
+          password: response.data.patient.password || '?',
+          u_id: response.data.patient.u_id || '?'
         });
       }
+
     } catch (error) {
       console.error('Error fetching user data:', error);
       if (error.response && error.response.status === 401) {
@@ -199,6 +208,11 @@ const PatientDashboard = () => {
     localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
   };
 
+  // Profile page navigation
+  const goToProfile = () => {
+    navigate('/patient-profile', { state: { userData } });
+  };
+
   return (
     <div className='app-container'>
       {/* Side Navigation */}
@@ -270,7 +284,11 @@ const PatientDashboard = () => {
               </div>
               <div className='header-right'>
                 <i className='fas fa-bell'></i>
-                <i className='fas fa-user-circle'></i>
+                <i
+                className="fas fa-user-circle"
+                onClick={goToProfile}
+                style={{ cursor: 'pointer' }}
+                ></i>
               </div>
             </header>
 
@@ -284,7 +302,7 @@ const PatientDashboard = () => {
                 <div className='dashboard-card'>
                   <h3>Heart Health Score</h3>
                   <div className='score'>{userData?.heart_score || 'N/A'}</div>
-                  <p>Out of 10</p>
+                  <p>Out of 100</p>
                 </div>
 
                 <div className='dashboard-card'>

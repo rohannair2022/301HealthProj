@@ -1,34 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import './Dashboard.css';
-import { redirect, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import FileUpload from './FileUpload';
-import AddFriendModal from './AddFriendModal';
+import React, { useState, useEffect, useCallback } from "react";
+import "./Dashboard.css";
+import { redirect, useNavigate } from "react-router-dom";
+import axios from "axios";
+import FileUpload from "./FileUpload";
+import AddFriendModal from "./AddFriendModal";
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [userData, setUserData] = useState({
     heart_score: 0,
     steps: 0,
-    name: '',
-    email: '',
-    password: '',
-    u_id: null
   });
   const [isHome, setHome] = useState(true);
   const [isUpload, setUpload] = useState(false);
   const [users, setUsers] = useState([]);
   const [friends, setFriends] = useState([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       await axios.post(
-        'http://localhost:5001/logout',
+        "http://localhost:5001/logout",
         {},
         {
           headers: {
@@ -38,21 +34,21 @@ const PatientDashboard = () => {
       );
       // Clear ALL storage
       localStorage.clear(); // This will remove token and any other stored data
-      navigate('/');
+      navigate("/");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
       // Even if the backend call fails, we should still clear storage and redirect
       localStorage.clear();
-      navigate('/');
+      navigate("/");
     }
   };
 
   const handleFitbitLogin = async () => {
     try {
       // First, perform login
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const codeCreation = await axios.get(
-        'http://localhost:5001/connect_watch',
+        "http://localhost:5001/connect_watch",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -62,39 +58,39 @@ const PatientDashboard = () => {
 
       const client_id = codeCreation.data.client_id;
       const code_challenge = codeCreation.data.code_challenge;
-      const scope = 'activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight';
+      const scope =
+        "activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight";
 
       // Redirect to Fitbit login page
       const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${client_id}&scope=${scope}&code_challenge_method=S256&code_challenge=${code_challenge}`;
-      window.open(authUrl, '_blank');
-
+      window.open(authUrl, "_blank");
     } catch (error) {
       // Handle different error scenarios
       if (error.response) {
         switch (error.response.status) {
           case 400:
-            alert('Please provide both email and password.');
+            alert("Please provide both email and password.");
             break;
           case 401:
-            alert('Invalid credentials. Please try again.');
+            alert("Invalid credentials. Please try again.");
             break;
           default:
-            alert('An error occurred. Please try again.');
+            alert("An error occurred. Please try again.");
         }
       } else if (error.request) {
-        alert('No response from server. Please check your connection.');
+        alert("No response from server. Please check your connection.");
       } else {
-        alert('Error setting up the login request.');
+        alert("Error setting up the login request.");
       }
-      console.error('Login error:', error);
+      console.error("Login error:", error);
     }
   };
 
   const fetchUserData = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
 
-      const response = await axios.get('http://localhost:5001/get_patient', {
+      const response = await axios.get("http://localhost:5001/get_patient", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -104,17 +100,12 @@ const PatientDashboard = () => {
         setUserData({
           heart_score: response.data.patient.heart_score || 0,
           steps: response.data.patient.steps || 0,
-          name: response.data.patient.name || '?',
-          email: response.data.patient.email || '?',
-          password: response.data.patient.password || '?',
-          u_id: response.data.patient.u_id || '?'
         });
       }
-
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error("Error fetching user data:", error);
       if (error.response && error.response.status === 401) {
-        navigate('/login');
+        navigate("/login");
       }
     }
     setTimeout(fetchUserData, 600000);
@@ -122,39 +113,39 @@ const PatientDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/list_users', {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:5001/list_users", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setUsers(response.data.users);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      setError('Failed to fetch users');
+      console.error("Error fetching users:", error);
+      setError("Failed to fetch users");
     }
   };
 
   const fetchFriends = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/list_friends', {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:5001/list_friends", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setFriends(response.data.friends || []);
     } catch (error) {
-      console.error('Error fetching friends:', error);
-      setError('Failed to fetch friends');
+      console.error("Error fetching friends:", error);
+      setError("Failed to fetch friends");
     }
   }, []);
 
   const handleAddFriend = async (friendId, friendType) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       await axios.post(
-        'http://localhost:5001/add_friend',
+        "http://localhost:5001/add_friend",
         {
           friend_id: friendId,
           friend_type: friendType,
@@ -168,15 +159,15 @@ const PatientDashboard = () => {
       // Refresh friends list after adding
       fetchFriends();
     } catch (error) {
-      console.error('Error adding friend:', error);
-      setError(error.response?.data?.error || 'Failed to add friend');
+      console.error("Error adding friend:", error);
+      setError(error.response?.data?.error || "Failed to add friend");
     }
   };
 
   const handleRemoveFriend = async (friendId, friendType) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete('http://localhost:5001/remove_friend', {
+      const token = localStorage.getItem("token");
+      await axios.delete("http://localhost:5001/remove_friend", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -188,15 +179,15 @@ const PatientDashboard = () => {
       // Refresh friends list after removing
       fetchFriends();
     } catch (error) {
-      console.error('Error removing friend:', error);
-      setError(error.response?.data?.error || 'Failed to remove friend');
+      console.error("Error removing friend:", error);
+      setError(error.response?.data?.error || "Failed to remove friend");
     }
   };
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    setIsDarkMode(savedTheme === 'dark');
-    document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
+    const savedTheme = localStorage.getItem("theme");
+    setIsDarkMode(savedTheme === "dark");
+    document.body.className = savedTheme === "dark" ? "dark-mode" : "";
     fetchUserData();
     fetchFriends();
   }, [fetchUserData, fetchFriends]);
@@ -204,28 +195,23 @@ const PatientDashboard = () => {
   // Theme toggle function
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
-    document.body.className = !isDarkMode ? 'dark-mode' : '';
-    localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
-  };
-
-  // Profile page navigation
-  const goToProfile = () => {
-    navigate('/patient-profile', { state: { userData } });
+    document.body.className = !isDarkMode ? "dark-mode" : "";
+    localStorage.setItem("theme", !isDarkMode ? "dark" : "light");
   };
 
   return (
-    <div className='app-container'>
+    <div className="app-container">
       {/* Side Navigation */}
-      <nav className='side-nav'>
-        <div className='logo'>SuperHeart</div>
-        <ul className='nav-links'>
+      <nav className="side-nav">
+        <div className="logo">SuperHeart</div>
+        <ul className="nav-links">
           <li
             onClick={() => {
               setUpload(false);
               setHome(true);
             }}
           >
-            <i className='fas fa-home'></i>
+            <i className="fas fa-home"></i>
             Dashboard
           </li>
           <li
@@ -234,11 +220,11 @@ const PatientDashboard = () => {
               setHome(false);
             }}
           >
-            <i className='fas fa-user-friends'></i>
+            <i className="fas fa-user-friends"></i>
             Friends
           </li>
           <li>
-            <i className='fas fa-chart-line'></i>
+            <i className="fas fa-chart-line"></i>
             Progress
           </li>
           <li
@@ -247,7 +233,7 @@ const PatientDashboard = () => {
               setHome(false);
             }}
           >
-            <i className='fas fa-upload'></i>
+            <i className="fas fa-upload"></i>
             Upload Data
           </li>
           <li
@@ -255,63 +241,59 @@ const PatientDashboard = () => {
               handleFitbitLogin();
             }}
           >
-            <i className='fas fa-heart'></i>
+            <i className="fas fa-heart"></i>
             Connect Fitbit
-          </li> 
-          <li onClick={toggleTheme} className='theme-toggle'>
-            <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
-            {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </li>
-          <li onClick={handleLogout} className='logout-btn'>
-            <i className='fas fa-sign-out-alt'></i>
+          <li onClick={toggleTheme} className="theme-toggle">
+            <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`}></i>
+            {isDarkMode ? "Light Mode" : "Dark Mode"}
+          </li>
+          <li onClick={handleLogout} className="logout-btn">
+            <i className="fas fa-sign-out-alt"></i>
             Logout
           </li>
         </ul>
       </nav>
 
       {/* Main Content */}
-      <main className='main-content'>
+      <main className="main-content">
         {isUpload ? (
           <div>
             <FileUpload />
           </div>
         ) : isHome ? (
           <>
-            <header className='top-header'>
-              <div className='header-search'>
-                <i className='fas fa-search'></i>
-                <input type='text' placeholder='Search...' />
+            <header className="top-header">
+              <div className="header-search">
+                <i className="fas fa-search"></i>
+                <input type="text" placeholder="Search..." />
               </div>
-              <div className='header-right'>
-                <i className='fas fa-bell'></i>
-                <i
-                className="fas fa-user-circle"
-                onClick={goToProfile}
-                style={{ cursor: 'pointer' }}
-                ></i>
+              <div className="header-right">
+                <i className="fas fa-bell"></i>
+                <i className="fas fa-user-circle"></i>
               </div>
             </header>
 
             {/* Dashboard Content */}
-            <div className='dashboard-content'>
-              <div className='dashboard-header'>
+            <div className="dashboard-content">
+              <div className="dashboard-header">
                 <h2>Health Overview</h2>
               </div>
 
-              <div className='dashboard-grid'>
-                <div className='dashboard-card'>
+              <div className="dashboard-grid">
+                <div className="dashboard-card">
                   <h3>Heart Health Score</h3>
-                  <div className='score'>{userData?.heart_score || 'N/A'}</div>
+                  <div className="score">{userData?.heart_score || "N/A"}</div>
                   <p>Out of 100</p>
                 </div>
 
-                <div className='dashboard-card'>
+                <div className="dashboard-card">
                   <h3>Daily Steps</h3>
-                  <div className='score'>{userData?.steps || 0}</div>
-                  <div className='steps-progress'>
-                    <div className='progress-bar'>
+                  <div className="score">{userData?.steps || 0}</div>
+                  <div className="steps-progress">
+                    <div className="progress-bar">
                       <div
-                        className='progress-fill'
+                        className="progress-fill"
                         style={{
                           width: `${((userData?.steps || 0) / 10000) * 100}%`,
                         }}
@@ -321,40 +303,40 @@ const PatientDashboard = () => {
                   </div>
                 </div>
 
-                <div className='dashboard-card'>
+                <div className="dashboard-card">
                   <h3>Height</h3>
-                  <div className='measurement'>{userData?.height || 'N/A'}</div>
+                  <div className="measurement">{userData?.height || "N/A"}</div>
                   <p>Current Height</p>
                 </div>
 
-                <div className='dashboard-card'>
+                <div className="dashboard-card">
                   <h3>Weight</h3>
-                  <div className='measurement'>{userData?.weight || 'N/A'}</div>
+                  <div className="measurement">{userData?.weight || "N/A"}</div>
                   <p>Current Weight</p>
                 </div>
               </div>
 
-              <div className='friends-section'>
-                <div className='section-header'>
+              <div className="friends-section">
+                <div className="section-header">
                   <h3>Friends</h3>
                   <button
-                    className='add-friend-btn'
+                    className="add-friend-btn"
                     onClick={() => setIsAddFriendModalOpen(true)}
                   >
-                    <i className='fas fa-plus'></i> Add Friend
+                    <i className="fas fa-plus"></i> Add Friend
                   </button>
                 </div>
-                <div className='search-bar'>
-                  <i className='fas fa-search'></i>
+                <div className="search-bar">
+                  <i className="fas fa-search"></i>
                   <input
-                    type='text'
-                    placeholder='Search friends...'
+                    type="text"
+                    placeholder="Search friends..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                {error && <div className='error-message'>{error}</div>}
-                <div className='friends-list'>
+                {error && <div className="error-message">{error}</div>}
+                <div className="friends-list">
                   {friends.length > 0 ? (
                     friends
                       .filter((friend) =>
@@ -363,28 +345,28 @@ const PatientDashboard = () => {
                           .includes(searchTerm.toLowerCase())
                       )
                       .map((friend) => (
-                        <div key={friend.u_id} className='friend-item'>
-                          <div className='friend-info'>
-                            <i className='fas fa-user-circle'></i>
-                            <span className='friend-name'>{friend.name}</span>
+                        <div key={friend.u_id} className="friend-item">
+                          <div className="friend-info">
+                            <i className="fas fa-user-circle"></i>
+                            <span className="friend-name">{friend.name}</span>
                             <span className={`friend-type ${friend.type}`}>
                               {friend.type.toUpperCase()}
                             </span>
                           </div>
-                          <div className='friend-actions'>
-                            <span className='friend-score'>
-                              {friend.type === 'patient'
+                          <div className="friend-actions">
+                            <span className="friend-score">
+                              {friend.type === "patient"
                                 ? `Score: ${friend.heart_score}`
                                 : friend.specialty}
                             </span>
                             <button
-                              className='remove-friend-btn'
+                              className="remove-friend-btn"
                               onClick={() =>
                                 handleRemoveFriend(friend.u_id, friend.type)
                               }
-                              title='Remove friend'
+                              title="Remove friend"
                             >
-                              <i className='fas fa-times'></i>
+                              <i className="fas fa-times"></i>
                             </button>
                           </div>
                         </div>

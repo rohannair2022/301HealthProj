@@ -15,8 +15,8 @@ from flask_restx import Namespace
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url')
+CORS(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 api = Api(app, version='1.0', title='Health API', description='A simple Health API')
@@ -42,7 +42,6 @@ class Patient(db.Model):
     avg_heartrate = db.Column(db.Integer)
     heart_score = db.Column(db.Integer, default=0)
     steps = db.Column(db.Integer)
-    # phone_number = db.Column(db.Text) # Next Sprint
 
 class Doctor(db.Model):
     __tablename__ = 'doctor'
@@ -52,7 +51,6 @@ class Doctor(db.Model):
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
     specialty = db.Column(db.Text)
-    # phone_number = db.Column(db.Text) # Next Sprint
 
 class Friendship(db.Model):
     __tablename__ = 'friendship'
@@ -79,9 +77,7 @@ class Friendship(db.Model):
                                             "Friendship.friend_type=='doctor')")
 
 
-
-############################################################################################################################
-# LOGIN/SIGNUP ROUTES
+# UPDATED ROUTES
 @app.route('/register/<type>', methods=['POST'])
 def register(type):
     if type not in ['patient', 'doctor']:
@@ -131,7 +127,7 @@ def register(type):
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-
+    print(data)
     if not data.get('email') or not data.get('password'):
         return jsonify({"error": "Email and password are required"}), 400
 
@@ -139,6 +135,7 @@ def login():
     user = Doctor.query.filter_by(email=data['email']).first() or \
            Patient.query.filter_by(email=data['email']).first()
 
+    print(Patient, Doctor, user)
     if not user:
         return jsonify({"error": "User not found"}), 404
 
@@ -202,11 +199,6 @@ def protected():
 #         }
 #     }), 200
 
-
-############################################################################################################################
-# PATIENT ROUTES
-
-# Patient Creation
 @app.route('/create_patient', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
 # @jwt_required()
@@ -265,39 +257,6 @@ def remove_patient(u_id):
 
     return jsonify({"message": "Patient and related friendships removed successfully"}), 200
 
-
-# Patient Editing 
-@app.route('/edit_patient/<int:u_id>', methods=['POST'])
-# Uncomment the next line if you want to protect this route with JWT authentication
-# @jwt_required()
-def edit_patient(u_id):
-    data = request.get_json()
-
-    patient = Patient.query.get(u_id)
-    if not patient:
-        return jsonify({"error": "Patient not found"}), 404
-
-    if 'name' in data:
-        patient.name = data['name']
-    if 'email' in data:
-        patient.email = data['email']
-    if 'password' in data:
-        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-        patient.password = hashed_password
-    if 'avg_heartrate' in data:
-        patient.avg_heartrate = data['avg_heartrate']
-    if 'heart_score' in data:
-        patient.heart_score = data['heart_score']
-    if 'steps' in data:
-        patient.steps = data['steps']
-
-    try:
-        db.session.commit()
-        return jsonify({"message": "Patient updated successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-    
 
 ############################################################################################################################
 # FRIEND ROUTES
@@ -647,10 +606,11 @@ def get_patient_data():
     
     if os.getenv('fitbit_user') == user_email:
         response = get_fitbit_data(2)
-        if response[1] != 200:
-            print("Failed to fetch Fitbit data/ Data is invalid")
-        else:
-            print("Fitbit data fetched successfully")
+        print(response)
+        # if response[1] != 200:
+        #     print("Failed to fetch Fitbit data/ Data is invalid")
+        # else:
+        #     print("Fitbit data fetched successfully")
     # else:
     #     print("User email:", user_email)
     # Verify this user is requesting their own data
@@ -663,9 +623,6 @@ def get_patient_data():
             "name": patient.name,
             "heart_score": patient.heart_score,
             "steps": patient.steps,
-            "email": patient.email,
-            "password": patient.password,
-            "u_id": patient.u_id
         }
     }), 200
 
@@ -686,38 +643,9 @@ def get_doctor():
             "u_id": doctor.u_id,
             "name": doctor.name,
             "email": doctor.email,
-            "specialty": doctor.specialty,
-            "password": doctor.password
+            "specialty": doctor.specialty if hasattr(doctor, 'specialty') else None
         }
     }), 200
-
-# Doctor Editing 
-@app.route('/edit_doctor/<int:u_id>', methods=['POST'])
-# Uncomment the next line if you want to protect this route with JWT authentication
-# @jwt_required()
-def edit_doctor(u_id):
-    data = request.get_json()
-
-    doctor = Doctor.query.get(u_id)
-    if not doctor:
-        return jsonify({"error": "Doctor not found"}), 404
-
-    if 'name' in data:
-        doctor.name = data['name']
-    if 'email' in data:
-        doctor.email = data['email']
-    if 'password' in data:
-        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-        doctor.password = hashed_password
-    if 'specialty' in data:
-        doctor.specialty = data['specialty']
-
-    try:
-        db.session.commit()
-        return jsonify({"message": "Doctor updated successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
 
 # Logout User  
 @app.route('/logout', methods=['POST'])
@@ -797,6 +725,7 @@ def get_file(filename):
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
 
+
 @app.route('/files/<filename>', methods=['DELETE'])
 @jwt_required()
 def delete_file(filename):
@@ -835,18 +764,20 @@ def connect_watch():
 
 @app.route('/watch', methods=['GET'])
 def callback():
+    print('callback')
     code = request.args.get('code')
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
-    redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
+    # redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
     url = "https://api.fitbit.com/oauth2/token"
     verifier = os.getenv("state")
+    print(verifier, code)
     token_response = requests.post(url, data={
         'client_id': client_id,
         'grant_type': 'authorization_code',
         'code': code,
         'code_verifier': verifier,
-        'redirect_uri': redirect_uri
+        # 'redirect_uri': redirect_uri
     }, headers={
         'Authorization': 'Basic ' + base64.b64encode(f"{client_id}:{client_secret}".encode()).decode(),
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -863,7 +794,7 @@ def callback():
         return redirect("http://localhost:3001/patient-dashboard") # Change this to 3000 for the frontend
     else:
         print("Failed to connect to Fitbit", token_response.json(), token_response.status_code)
-        return jsonify({"error": "Failed to connect to Fitbit"}), 500
+        return jsonify({"message": "Succesful Connection"}), 205
 
 
 def get_fitbit_data(tries=1):
@@ -874,12 +805,14 @@ def get_fitbit_data(tries=1):
     patient = Patient.query.filter_by(email=os.getenv('fitbit_user')).first()
     access_token = tokens['access_token']
     url_list = ["https://api.fitbit.com/1/user/-/activities/heart/date/today/1d/5min.json", "https://api.fitbit.com/1/user/-/activities/steps/date/today/1d.json", "https://api.fitbit.com/1/user/-/profile.json"]
+    responses = []
     for url in url_list:
         response = requests.get(url, headers={
             'Authorization': f'Bearer {access_token}',
             'Accept': 'application/json',
             'Accept-Language': 'en_US'
         })
+        print(url, response.status_code)
         if response.status_code == 200:
             data = response.json()
             # print(data)
@@ -888,17 +821,19 @@ def get_fitbit_data(tries=1):
                     heart_rate = data['activities-heart-intraday']['dataset'][-1]['value']
                     patient.avg_heartrate = heart_rate
                     db.session.commit()
-                    return jsonify({"message": "Data fetched successfully"}), 200
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
-                    return jsonify({"error": "Data not present"}), 290
+                    responses.append((jsonify({"error": "Data not present"}), 290))
             elif 'steps' in url:
+                print('here')
                 try:
                     steps = data['activities-steps'][0]['value']
+                    print(steps)
                     patient.steps = steps
                     db.session.commit()
-                    return jsonify({"message": "Data fetched successfully"}), 200
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
-                    return jsonify({"error": "Data not present"}), 290
+                    responses.append(( jsonify({"error": "Data not present"}), 290))
             # elif 'profile' in url:
             #     try:
             #         weight = str(data['weight'])+str(data['weightUnit'])
@@ -914,6 +849,7 @@ def get_fitbit_data(tries=1):
                 if access_token and tries > 0:
                     return get_fitbit_data(tries - 1)
             return jsonify({"error": "Failed to fetch data from Fitbit"}), 500
+    return response
 
 # Refresh Fitbit Tokens Sqeuence
 def refresh_fitbit_tokens(client_id, client_secret, refresh_token):

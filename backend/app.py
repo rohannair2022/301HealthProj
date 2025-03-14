@@ -39,9 +39,15 @@ class Patient(db.Model):
     email = db.Column(db.Text, nullable=False, unique=True)
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
-    avg_heartrate = db.Column(db.Integer)
+    phone_number = db.Column(db.String(15), nullable=False, unique=True, default="000-000-0000")  # Default phone number
+    avg_heartrate = db.Column(db.Integer, default=70)
     heart_score = db.Column(db.Integer, default=0)
-    steps = db.Column(db.Integer)
+    steps = db.Column(db.Integer, default=0)
+    breathing_rate = db.Column(db.Integer, default=16)
+    spo2 = db.Column(db.Float, default=98.0)
+    ecg = db.Column(db.Text, default="Normal")
+    sleep = db.Column(db.Float, default=7.0)
+
 
 class Doctor(db.Model):
     __tablename__ = 'doctor'

@@ -567,6 +567,7 @@ def submit_test():
         glucoseTest = 15 if data.get('glucoseTest') == 'Yes' else 0
         consultedCardiologist = 20 if data.get('consultedCardiologist') == 'Yes' else 0
         consultedDietitian = 20 if data.get('consultedDietitian') == 'Yes' else 0
+        phone_number = data.get('phoneNumber')
 
         # Extract user email from the JWT token (authentication)
         user_email = get_jwt_identity()
@@ -590,6 +591,8 @@ def submit_test():
 
         # Update the patient's heart score in the database
         patient.heart_score = heart_score
+        patient.phone_number = phone_number
+        
         db.session.commit()
 
         return jsonify({"message": "Test submitted successfully", "heart_score": heart_score}), 200

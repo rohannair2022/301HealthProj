@@ -689,6 +689,31 @@ def update_health_score():
     return jsonify({'message': f"Updated health score for {patient.name} to {new_score}"}), 200
 
 
+@app.route('/doctor/files/<int:patient_id>', methods=['GET', 'OPTIONS'])
+@jwt_required(optional=True)
+def doctor_list_patient_files(patient_id):
+    # For preflight requests, return early without JWT verification.
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    # Now enforce that a token must be present.
+    current_user = get_jwt_identity()
+    if not current_user:
+        return jsonify({"error": "Missing token"}), 401
+
+    doctor = Doctor.query.filter_by(email=current_user).first()
+    if not doctor:
+        return jsonify({"error": "Unauthorized access"}), 403
+
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(patient_id))
+    if not os.path.exists(user_folder):
+        return jsonify({"files": []}), 200
+
+    files = os.listdir(user_folder)
+    return jsonify({"files": files}), 200
+
+
+
 # Logout User  
 @app.route('/logout', methods=['POST'])
 @jwt_required()

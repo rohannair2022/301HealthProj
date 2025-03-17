@@ -543,6 +543,8 @@ def get_user_type():
     except Exception as e:
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
+    
+
 ############################################################################################################################
 
 # Heart Score Calculation
@@ -606,6 +608,7 @@ def submit_test():
         # Handle any other unforeseen errors
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
+
 # Get patient info 
 @app.route('/get_patient', methods=['GET'])
 @jwt_required()
@@ -655,6 +658,36 @@ def get_doctor():
             "specialty": doctor.specialty if hasattr(doctor, 'specialty') else None
         }
     }), 200
+
+
+# Doctor Updating Patients Score
+
+@app.route('/doctor/update_health_score', methods=['PUT'])
+@jwt_required()
+def update_health_score():
+    current_user_email = get_jwt_identity()
+    doctor = Doctor.query.filter_by(email=current_user_email).first()
+    
+    if not doctor:
+        return jsonify({'error': 'Unauthorized access'}), 403
+
+    data = request.get_json()
+    patient_id = data.get('patient_id')
+    new_score = data.get('health_score')
+
+    if not patient_id or new_score is None:
+        return jsonify({'error': 'Missing required data'}), 400
+
+    patient = Patient.query.get(patient_id)
+    
+    if not patient:
+        return jsonify({'error': 'Patient not found'}), 404
+    
+    patient.heart_score = new_score
+    db.session.commit()
+
+    return jsonify({'message': f"Updated health score for {patient.name} to {new_score}"}), 200
+
 
 # Logout User  
 @app.route('/logout', methods=['POST'])

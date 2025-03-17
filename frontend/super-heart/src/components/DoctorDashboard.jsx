@@ -17,6 +17,7 @@ const DoctorDashboard = () => {
   });
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [friends, setFriends] = useState([]);
+  const [patientFiles, setPatientFiles] = useState({}); // Map patient id -> files array
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -31,11 +32,7 @@ const DoctorDashboard = () => {
       await axios.post(
         "http://localhost:5001/logout",
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       localStorage.removeItem("token");
       navigate("/");
@@ -52,28 +49,57 @@ const DoctorDashboard = () => {
       const response = await axios.get("http://localhost:5001/get_doctor", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.data) {
-        setDoctorData(response.data.doctor);
-      }
+      if (response.data) setDoctorData(response.data.doctor);
     } catch (error) {
       console.error("Error fetching doctor data:", error);
-      if (error.response && error.response.status === 401) {
-        navigate("/login");
-      }
+      if (error.response?.status === 401) navigate("/login");
     }
   };
 
+  // Fetch friends (patients) and then their files
   const fetchFriends = async () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get("http://localhost:5001/list_friends", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setFriends(response.data.friends || []);
+      const friendsData = response.data.friends || [];
+      setFriends(friendsData);
+      updatePatientFiles(friendsData);
     } catch (error) {
       console.error("Error fetching friends:", error);
       setError("Failed to fetch friends");
     }
+  };
+
+  // Fetch files for a single patient
+  const fetchPatientFiles = async (patientId) => {
+    try {
+      const token = localStorage.getItem("token");
+      // Assumes a new endpoint for doctor to view patient's files exists:
+      const response = await axios.get(
+        `http://localhost:5001/doctor/files/${patientId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data.files || [];
+    } catch (error) {
+      console.error("Error fetching files for patient", patientId, error);
+      return [];
+    }
+  };
+
+  // Update the patientFiles mapping for each patient
+  const updatePatientFiles = async (friendsList) => {
+    const newPatientFiles = {};
+    await Promise.all(
+      friendsList.map(async (friend) => {
+        if (friend.type === "patient") {
+          const files = await fetchPatientFiles(friend.u_id);
+          newPatientFiles[friend.u_id] = files;
+        }
+      })
+    );
+    setPatientFiles(newPatientFiles);
   };
 
   const handleFitbitLogin = async () => {
@@ -81,7 +107,9 @@ const DoctorDashboard = () => {
       const token = localStorage.getItem("token");
       const codeCreation = await axios.get(
         "http://localhost:5001/connect_watch",
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
       const { client_id, code_challenge } = codeCreation.data;
       const scope =
@@ -153,9 +181,8 @@ const DoctorDashboard = () => {
   const handleUpdateHealthScore = async () => {
     try {
       const token = localStorage.getItem("token");
-
       await axios.put(
-        `http://localhost:5001/doctor/update_health_score`,
+        "http://localhost:5001/doctor/update_health_score",
         { health_score: newHealthScore, patient_id: selectedPatient.u_id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -192,24 +219,20 @@ const DoctorDashboard = () => {
         <div className="logo">SuperHeart</div>
         <ul className="nav-links">
           <li>
-            <i className="fas fa-home"></i>
-            Dashboard
+            <i className="fas fa-home"></i> Dashboard
           </li>
           <li>
-            <i className="fas fa-user-friends"></i>
-            My Patients
+            <i className="fas fa-user-friends"></i> My Patients
           </li>
           <li onClick={toggleTheme} className="theme-toggle">
             <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`}></i>
             {isDarkMode ? "Light Mode" : "Dark Mode"}
           </li>
           <li onClick={handleFitbitLogin}>
-            <i className="fas fa-heart"></i>
-            Connect Fitbit
+            <i className="fas fa-heart"></i> Connect Fitbit
           </li>
           <li onClick={handleLogout} className="logout-btn">
-            <i className="fas fa-sign-out-alt"></i>
-            Logout
+            <i className="fas fa-sign-out-alt"></i> Logout
           </li>
         </ul>
       </nav>
@@ -286,6 +309,26 @@ const DoctorDashboard = () => {
                           <i className="fas fa-times"></i>
                         </button>
                       </div>
+                      {/* Display patient's uploaded files */}
+                      {patientFiles[friend.u_id] &&
+                        patientFiles[friend.u_id].length > 0 && (
+                          <div className="patient-files">
+                            <strong>Files:</strong>
+                            <ul>
+                              {patientFiles[friend.u_id].map((file, idx) => (
+                                <li key={idx}>
+                                  <a
+                                    href={`http://localhost:5001/doctor/files/${friend.u_id}/${file}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {file}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                     </div>
                   ))
               ) : (

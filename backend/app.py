@@ -1,3 +1,4 @@
+import datetime
 from flask import Flask, redirect, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -16,7 +17,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:PostgresHuh@localhost:5432/newDB" # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 api = Api(app, version='1.0', title='Health API', description='A simple Health API')
@@ -42,11 +43,12 @@ class Patient(db.Model):
     phone_number = db.Column(db.String(15), nullable=False, unique=True, default="000-000-0000")  # Default phone number
     avg_heartrate = db.Column(db.Integer, default=70)
     heart_score = db.Column(db.Integer, default=0)
-    steps = db.Column(db.Integer, default=0)
+    steps = db.Column(db.Integer, default=0) # NOTE: this is the latest step field now
     breathing_rate = db.Column(db.Integer, default=16)
     spo2 = db.Column(db.Float, default=98.0)
     ecg = db.Column(db.Text, default="Normal")
     sleep = db.Column(db.Float, default=7.0)
+
 
 
 class Doctor(db.Model):
@@ -82,6 +84,14 @@ class Friendship(db.Model):
                                   primaryjoin="and_(Friendship.friend_id==Doctor.u_id, "
                                             "Friendship.friend_type=='doctor')")
 
+# Add to models section
+class DailySteps(db.Model):
+    __tablename__ = 'daily_steps'
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.u_id'), nullable=False)
+    date = db.Column(db.Date, default=db.func.current_date())
+    steps = db.Column(db.Integer, default=0)
+    patient = db.relationship('Patient', backref='daily_steps')
 
 # UPDATED ROUTES
 @app.route('/register/<type>', methods=['POST'])
@@ -263,6 +273,33 @@ def remove_patient(u_id):
 
     return jsonify({"message": "Patient and related friendships removed successfully"}), 200
 
+@app.route('/get_weekly_steps', methods=['GET'])
+@jwt_required()
+def get_weekly_steps():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=user_email).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    # Get steps for last 7 days
+    seven_days_ago = datetime.now() - datetime.timedelta(days=7)
+    steps_data = DailySteps.query.filter(
+        DailySteps.patient_id == patient.u_id,
+        DailySteps.date >= seven_days_ago
+    ).order_by(DailySteps.date.asc()).all()
+
+    # Fill missing days with 0 steps
+    steps_dict = {str(entry.date): entry.steps for entry in steps_data}
+    complete_data = []
+    for i in range(7):
+        date = (datetime.now() - datetime.timedelta(days=6-i)).date()
+        complete_data.append({
+            "date": str(date),
+            "steps": steps_dict.get(str(date), 0)
+        })
+
+    return jsonify({"weekly_steps": complete_data}), 200
 
 ############################################################################################################################
 # FRIEND ROUTES
@@ -895,7 +932,23 @@ def get_fitbit_data(tries=1):
                 print('here')
                 try:
                     steps = data['activities-steps'][0]['value']
-                    print(steps)
+                    # Store in daily steps
+                    today = datetime.now().date()
+                    daily_entry = DailySteps.query.filter_by(
+                        patient_id=patient.u_id,
+                        date=today
+                    ).first()
+                    
+                    if not daily_entry:
+                        daily_entry = DailySteps(
+                            patient_id=patient.u_id,
+                            date=today,
+                            steps=steps
+                        )
+                        db.session.add(daily_entry)
+                    else:
+                        daily_entry.steps = steps
+                    
                     patient.steps = steps
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))

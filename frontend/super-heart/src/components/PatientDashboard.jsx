@@ -4,6 +4,9 @@ import { redirect, useNavigate } from "react-router-dom";
 import axios from "axios";
 import FileUpload from "./FileUpload";
 import AddFriendModal from "./AddFriendModal";
+import StepsChart from './StepsChart';
+import HeartRateChart from "./HeartRateChart";
+// import SpO2Chart from "./SpO2Chart";
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -19,6 +22,10 @@ const PatientDashboard = () => {
   const [friends, setFriends] = useState([]);
   const [error, setError] = useState("");
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isProgress, setProgress] = useState(false);
+  const [weeklySteps, setWeeklySteps] = useState([]);
+  const [weeklyHeartRate, setWeeklyHeartRate] = useState([]);
+  // const [weeklySpO2, setWeeklySpO2] = useState([]);
 
   const handleLogout = async () => {
     try {
@@ -141,6 +148,43 @@ const PatientDashboard = () => {
     }
   }, []);
 
+  const fetchWeeklySteps = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:5001/get_weekly_steps", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setWeeklySteps(response.data.weekly_steps);
+    } catch (error) {
+      console.error("Error fetching weekly steps:", error);
+    }
+  }, []);
+
+  const fetchHeartRateData = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:5001/get_weekly_heart_rate", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setWeeklyHeartRate(response.data.weekly_heart_rate);
+    } catch (error) {
+      console.error("Error fetching heart rate data:", error);
+    }
+  }, []);
+  
+  // const fetchSpO2Data = useCallback(async () => {
+  //   try {
+  //     const token = localStorage.getItem("token");
+  //     const response = await axios.get("http://localhost:5001/get_weekly_spo2", {
+  //       headers: { Authorization: `Bearer ${token}` },
+  //     });
+  //     setWeeklySpO2(response.data.weekly_spo2);
+  //   } catch (error) {
+  //     console.error("Error fetching SpO2 data:", error);
+  //   }
+  // }, []);
+
+
   const handleAddFriend = async (friendId, friendType) => {
     try {
       const token = localStorage.getItem("token");
@@ -190,7 +234,10 @@ const PatientDashboard = () => {
     document.body.className = savedTheme === "dark" ? "dark-mode" : "";
     fetchUserData();
     fetchFriends();
-  }, [fetchUserData, fetchFriends]);
+    fetchWeeklySteps();
+    fetchHeartRateData();
+    // fetchSpO2Data();
+  }, [fetchUserData, fetchFriends, fetchWeeklySteps, fetchHeartRateData]);
 
   // Theme toggle function
   const toggleTheme = () => {
@@ -209,6 +256,7 @@ const PatientDashboard = () => {
             onClick={() => {
               setUpload(false);
               setHome(true);
+              setProgress(false);
             }}
           >
             <i className="fas fa-home"></i>
@@ -218,12 +266,19 @@ const PatientDashboard = () => {
             onClick={() => {
               setUpload(false);
               setHome(false);
+              setProgress(false);
             }}
           >
             <i className="fas fa-user-friends"></i>
             Friends
           </li>
-          <li>
+          <li
+            onClick={() => {
+              setUpload(false);
+              setHome(false);
+              setProgress(true);
+            }}
+          >
             <i className="fas fa-chart-line"></i>
             Progress
           </li>
@@ -231,6 +286,7 @@ const PatientDashboard = () => {
             onClick={() => {
               setUpload(true);
               setHome(false);
+              setProgress(false);
             }}
           >
             <i className="fas fa-upload"></i>
@@ -316,6 +372,7 @@ const PatientDashboard = () => {
                 </div>
               </div>
 
+              {/* Friends Section */}
               <div className="friends-section">
                 <div className="section-header">
                   <h3>Friends</h3>
@@ -384,6 +441,47 @@ const PatientDashboard = () => {
               onAddFriend={handleAddFriend}
             />
           </>
+        ) : isProgress ? ( // Progress Section
+          <div className="dashboard-content">
+            {/* Horizontal Layout for Steps and Heart Rate Charts */}
+            <div className="horizontal-charts-container">
+              {/* Steps Chart */}
+              <div className="horizontal-chart">
+                <StepsChart data={weeklySteps} />
+              </div>
+
+              {/* Heart Rate Chart */}
+              <div className="horizontal-chart">
+                <HeartRateChart data={weeklyHeartRate} />
+              </div>
+            </div>
+
+            {/* Weekly Summary Below */}
+            <div className="stats-summary">
+              <h3>Weekly Summary</h3>
+              <div className="stats-grid">
+                {/* Steps Statistics */}
+                <div className="stat-item">
+                  <span>Total Steps</span>
+                  <strong>{weeklySteps.reduce((sum, day) => sum + (day.steps || 0), 0)}</strong>
+                </div>
+                <div className="stat-item">
+                  <span>Avg Daily Steps</span>
+                  <strong>{Math.round(weeklySteps.reduce((sum, day) => sum + (day.steps || 0), 0) / 7)}</strong>
+                </div>
+
+                {/* Heart Rate Statistics */}
+                <div className="stat-item">
+                  <span>Avg Heart Rate</span>
+                  <strong>
+                    {weeklyHeartRate.length > 0 
+                      ? Math.round(weeklyHeartRate.reduce((sum, day) => sum + (day.heart_rate || 0), 0) / 7)
+                      : 'N/A'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : null}
       </main>
     </div>

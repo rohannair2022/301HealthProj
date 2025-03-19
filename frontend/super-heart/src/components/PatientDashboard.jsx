@@ -12,6 +12,9 @@ const PatientDashboard = () => {
   const [userData, setUserData] = useState({
     heart_score: 0,
     steps: 0,
+    sleep: null,
+    br: null,
+    spo2: null,
   });
   const [isHome, setHome] = useState(true);
   const [isUpload, setUpload] = useState(false);
@@ -100,6 +103,9 @@ const PatientDashboard = () => {
         setUserData({
           heart_score: response.data.patient.heart_score || 0,
           steps: response.data.patient.steps || 0,
+          sleep: response.data.patient.sleep || null,
+          br: response.data.patient.br || null,
+          spo2: response.data.patient.spo2 || null,
         });
       }
     } catch (error) {
@@ -304,15 +310,21 @@ const PatientDashboard = () => {
                 </div>
 
                 <div className="dashboard-card">
-                  <h3>Height</h3>
-                  <div className="measurement">{userData?.height || "N/A"}</div>
-                  <p>Current Height</p>
+                  <h3>Sleep</h3>
+                  <div className="measurement">{userData?.sleep || "N/A"}</div>
+                  <p>Minutes Asleep</p>
                 </div>
 
                 <div className="dashboard-card">
-                  <h3>Weight</h3>
-                  <div className="measurement">{userData?.weight || "N/A"}</div>
-                  <p>Current Weight</p>
+                  <h3>Breathing Rate</h3>
+                  <div className="measurement">{userData?.br || "N/A"}</div>
+                  <p>Number of breaths per minute</p>
+                </div>
+
+                <div className="dashboard-card">
+                  <h3>SpO2</h3>
+                  <div className="measurement">{userData?.spo2 || "N/A"}</div>
+                  <p>Pulse Oxygen Level (in %)</p>
                 </div>
               </div>
 

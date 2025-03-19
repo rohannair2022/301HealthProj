@@ -17,7 +17,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:PostgresHuh@localhost:5432/newDB" # Replace <user>, <password>, <database_name>
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("postgres-setup-url") # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 api = Api(app, version='1.0', title='Health API', description='A simple Health API')
@@ -830,6 +830,9 @@ def get_patient_data():
             "name": patient.name,
             "heart_score": patient.heart_score,
             "steps": patient.steps,
+            "sleep": patient.sleep,
+            "breathing_rate": patient.breathing_rate,
+            "spo2": patient.spo2,
         }
     }), 200
 
@@ -1031,7 +1034,7 @@ def connect_watch():
     # Return the code_challenge and client_id to the frontend
     client_id = os.getenv("CLIENT_ID")
     return jsonify({
-        'code_challenge': code_challenge,
+        'code_challenge': challenge,
         'code_challenge_method': 'S256',
         'client_id': client_id
     })
@@ -1044,9 +1047,9 @@ def callback():
         return jsonify({"error": "Authorization code not found"}), 400
     
     # Retrieve the stored code_verifier
-    code_verifier = os.environ.get("code_verifier")
-    if not code_verifier:
-        return jsonify({"error": "Code verifier not found"}), 400
+    # code_verifier = os.environ.get("code_verifier")
+    # if not code_verifier:
+    #     return jsonify({"error": "Code verifier not found"}), 400
     
     # Prepare the token request payload
     client_id = os.getenv("CLIENT_ID")
@@ -1059,12 +1062,10 @@ def callback():
         'client_id': client_id,
         'grant_type': 'authorization_code',
         'code': code,
-        'code_verifier': code_verifier,
+        'code_verifier': verifier   ,
         'redirect_uri': os.getenv("FITBIT_REDIRECT_URI")
-    }
-    
-    # Make the token request
-    response = requests.post(token_url, data=payload, headers={
+    },
+    headers={
         'Authorization': 'Basic ' + base64.b64encode(f"{client_id}:{client_secret}".encode()).decode(),
         'Content-Type': 'application/x-www-form-urlencoded'
     })

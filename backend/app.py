@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, send_from_directory, session
+import datetime
+from flask import Flask, redirect, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
@@ -10,13 +11,16 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from flask_restx import Api
 from flask_restx import Namespace
+from email.message import EmailMessage
+import ssl
+import smtplib
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url')
+CORS(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # original port: 5432 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 api = Api(app, version='1.0', title='Health API', description='A simple Health API')
@@ -26,6 +30,9 @@ UPLOAD_FOLDER = 'uploads'
 TOKEN_FILE_PATH = 'fitbit_token.json'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+gmail_user = "superhear.csc301@gmail.com"
+gmail_pass = os.getenv("gmail_pass")
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -39,10 +46,16 @@ class Patient(db.Model):
     email = db.Column(db.Text, nullable=False, unique=True)
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
-    avg_heartrate = db.Column(db.Integer)
+    phone_number = db.Column(db.String(15), nullable=False, unique=True, default="000-000-0000")  # Default phone number
+    avg_heartrate = db.Column(db.Integer, default=70)
     heart_score = db.Column(db.Integer, default=0)
-    steps = db.Column(db.Integer)
-    # phone_number = db.Column(db.Text) # Next Sprint
+    steps = db.Column(db.Integer, default=0) # NOTE: this is the latest step field now
+    breathing_rate = db.Column(db.Integer, default=16)
+    spo2 = db.Column(db.Float, default=98.0)
+    ecg = db.Column(db.Text, default="Normal")
+    sleep = db.Column(db.Float, default=7.0)
+
+
 
 class Doctor(db.Model):
     __tablename__ = 'doctor'
@@ -52,7 +65,6 @@ class Doctor(db.Model):
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
     specialty = db.Column(db.Text)
-    # phone_number = db.Column(db.Text) # Next Sprint
 
 class Friendship(db.Model):
     __tablename__ = 'friendship'
@@ -78,10 +90,7 @@ class Friendship(db.Model):
                                   primaryjoin="and_(Friendship.friend_id==Doctor.u_id, "
                                             "Friendship.friend_type=='doctor')")
 
-
-
-############################################################################################################################
-# LOGIN/SIGNUP ROUTES
+# UPDATED ROUTES
 @app.route('/register/<type>', methods=['POST'])
 def register(type):
     if type not in ['patient', 'doctor']:
@@ -121,6 +130,8 @@ def register(type):
         db.session.add(new_user)
         db.session.commit()
 
+        welcome_user(data['email'], name=data['name'])
+
         return jsonify({"message": f"{type.capitalize()} registration successful"}), 201
 
     except Exception as e:
@@ -131,7 +142,7 @@ def register(type):
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-
+    print(data)
     if not data.get('email') or not data.get('password'):
         return jsonify({"error": "Email and password are required"}), 400
 
@@ -139,6 +150,7 @@ def login():
     user = Doctor.query.filter_by(email=data['email']).first() or \
            Patient.query.filter_by(email=data['email']).first()
 
+    print(Patient, Doctor, user)
     if not user:
         return jsonify({"error": "User not found"}), 404
 
@@ -202,11 +214,6 @@ def protected():
 #         }
 #     }), 200
 
-
-############################################################################################################################
-# PATIENT ROUTES
-
-# Patient Creation
 @app.route('/create_patient', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
 # @jwt_required()
@@ -248,22 +255,36 @@ def create_patient():
     return jsonify({"message": "Patient created successfully", "u_id": new_patient.u_id}), 201
 
 
-# Patient Deletion
-@app.route('/remove_patient/<int:u_id>', methods=['DELETE'])
-@jwt_required()
-def remove_patient(u_id):
-    patient = Patient.query.get(u_id)
-    if not patient:
-        return jsonify({"error": "Patient not found"}), 404
+# Doctor Editing 
+@app.route('/edit_doctor/<int:u_id>', methods=['POST'])
+# Uncomment the next line if you want to protect this route with JWT authentication
+# @jwt_required()
+def edit_doctor(u_id):
+    data = request.get_json()
 
-    Friendship.query.filter(
-        (Friendship.patient_id == u_id) | (Friendship.friend_id == u_id)
-    ).delete()
+    doctor = Doctor.query.get(u_id)
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
 
-    db.session.delete(patient)
-    db.session.commit()
+    if 'name' in data:
+        doctor.name = data['name']
+    if 'email' in data:
+        doctor.email = data['email']
+    if 'password' in data:
+        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+        doctor.password = hashed_password
+    if 'specialty' in data:
+        doctor.specialty = data['specialty']
 
-    return jsonify({"message": "Patient and related friendships removed successfully"}), 200
+    try:
+        db.session.commit()
+        
+        notify_user(doctor.email, doctor.name)
+
+        return jsonify({"message": "Doctor updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 # Patient Editing 
@@ -293,9 +314,220 @@ def edit_patient(u_id):
 
     try:
         db.session.commit()
+
+        notify_user(patient.email, patient.name)
+
         return jsonify({"message": "Patient updated successfully"}), 200
     except Exception as e:
         db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# Patient Deletion
+@app.route('/remove_patient/<int:u_id>', methods=['DELETE'])
+@jwt_required()
+def remove_patient(u_id):
+    patient = Patient.query.get(u_id)
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    Friendship.query.filter(
+        (Friendship.patient_id == u_id) | (Friendship.friend_id == u_id)
+    ).delete()
+
+    db.session.delete(patient)
+    db.session.commit()
+
+    return jsonify({"message": "Patient and related friendships removed successfully"}), 200
+@app.route('/get_weekly_steps', methods=['GET'])
+@jwt_required()
+def get_weekly_steps():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=user_email).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    try:
+        # Get Fitbit data for the last 7 days
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=6)
+        
+        # Fetch the access token
+        access_token, _ = load_tokens_from_file()
+        if not access_token:
+            return jsonify({"error": "Fitbit not connected"}), 400
+
+        # Fetch step data from Fitbit API
+        url = f"https://api.fitbit.com/1/user/-/activities/steps/date/{start_date}/{end_date}.json"
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        # Handle token expiration
+        if response.status_code == 401:
+            # Refresh the token and retry
+            client_id = os.getenv("CLIENT_ID")
+            client_secret = os.getenv("CLIENT_SECRET")
+            _, refresh_token = load_tokens_from_file()
+            access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+            
+            if not access_token:
+                return jsonify({"error": "Failed to refresh Fitbit token"}), 500
+
+            # Retry the request with the new token
+            response = requests.get(url, headers={
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            })
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch Fitbit data"}), 500
+
+        # Process the response
+        fitbit_data = response.json().get('activities-steps', [])
+        steps_dict = {entry['dateTime']: int(entry['value']) for entry in fitbit_data}
+        
+        # Fill in missing days with 0 steps
+        complete_data = []
+        for i in range(7):
+            date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
+            complete_data.append({
+                "date": date,
+                "steps": steps_dict.get(date, 0)
+            })
+
+        return jsonify({"weekly_steps": complete_data}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Uncomment and update these routes in app.py
+@app.route('/get_weekly_heart_rate', methods=['GET'])
+@jwt_required()
+def get_weekly_heart_rate():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=user_email).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    try:
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=6)
+        
+        access_token, _ = load_tokens_from_file()
+        if not access_token:
+            return jsonify({"error": "Fitbit not connected"}), 400
+
+        url = f"https://api.fitbit.com/1/user/-/activities/heart/date/{start_date}/{end_date}.json"
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        if response.status_code == 401:
+            client_id = os.getenv("CLIENT_ID")
+            client_secret = os.getenv("CLIENT_SECRET")
+            _, refresh_token = load_tokens_from_file()
+            access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+            
+            if not access_token:
+                return jsonify({"error": "Failed to refresh Fitbit token"}), 500
+
+            response = requests.get(url, headers={
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            })
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch Fitbit data"}), 500
+
+        fitbit_data = response.json().get('activities-heart', [])
+        heart_rate_dict = {}
+        for entry in fitbit_data:
+            date = entry['dateTime']
+            heart_rate_dict[date] = entry['value'].get('restingHeartRate', patient.avg_heartrate)
+
+        complete_data = []
+        for i in range(7):
+            date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
+            complete_data.append({
+                "date": date,
+                "heart_rate": heart_rate_dict.get(date, patient.avg_heartrate)
+            })
+
+        return jsonify({"weekly_heart_rate": complete_data}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/get_weekly_spo2', methods=['GET'])
+@jwt_required()
+def get_weekly_spo2():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=user_email).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    try:
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=6)
+        
+        access_token, _ = load_tokens_from_file()
+        if not access_token:
+            return jsonify({"error": "Fitbit not connected"}), 400
+
+        url = f"https://api.fitbit.com/1/user/-/spo2/date/{start_date}/{end_date}.json"
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        if response.status_code == 401:
+            client_id = os.getenv("CLIENT_ID")
+            client_secret = os.getenv("CLIENT_SECRET")
+            _, refresh_token = load_tokens_from_file()
+            access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+            
+            if not access_token:
+                return jsonify({"error": "Failed to refresh Fitbit token"}), 500
+
+            response = requests.get(url, headers={
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            })
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch Fitbit data"}), 500
+
+        fitbit_data = response.json().get('spo2', [])
+        spo2_dict = {}
+        
+        # Handle Fitbit's different response structure
+        for entry in fitbit_data:
+            date = entry['dateTime']
+            # Check for both possible response formats
+            if 'minutes' in entry['value']:
+                # Daily average format
+                spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
+            else:
+                # Direct value format
+                spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
+        
+        complete_data = []
+        for i in range(7):
+            date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
+            complete_data.append({
+                "date": date,
+                "spo2": spo2_dict.get(date, patient.spo2)
+            })
+
+        return jsonify({"weekly_spo2": complete_data}), 200
+
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
     
 
@@ -578,6 +810,8 @@ def get_user_type():
     except Exception as e:
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
+    
+
 ############################################################################################################################
 
 # Heart Score Calculation
@@ -602,6 +836,7 @@ def submit_test():
         glucoseTest = 15 if data.get('glucoseTest') == 'Yes' else 0
         consultedCardiologist = 20 if data.get('consultedCardiologist') == 'Yes' else 0
         consultedDietitian = 20 if data.get('consultedDietitian') == 'Yes' else 0
+        phone_number = data.get('phoneNumber')
 
         # Extract user email from the JWT token (authentication)
         user_email = get_jwt_identity()
@@ -625,6 +860,8 @@ def submit_test():
 
         # Update the patient's heart score in the database
         patient.heart_score = heart_score
+        patient.phone_number = phone_number
+        
         db.session.commit()
 
         return jsonify({"message": "Test submitted successfully", "heart_score": heart_score}), 200
@@ -637,6 +874,7 @@ def submit_test():
     except Exception as e:
         # Handle any other unforeseen errors
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
 
 # Get patient info 
 @app.route('/get_patient', methods=['GET'])
@@ -661,6 +899,7 @@ def get_patient_data():
         }
     }), 200
 
+
 # Get doctor info
 @app.route('/get_doctor', methods=['GET'])
 @jwt_required()
@@ -683,33 +922,60 @@ def get_doctor():
         }
     }), 200
 
-# Doctor Editing 
-@app.route('/edit_doctor/<int:u_id>', methods=['POST'])
-# Uncomment the next line if you want to protect this route with JWT authentication
-# @jwt_required()
-def edit_doctor(u_id):
-    data = request.get_json()
 
-    doctor = Doctor.query.get(u_id)
+# Doctor Updating Patients Score
+
+@app.route('/doctor/update_health_score', methods=['PUT'])
+@jwt_required()
+def update_health_score():
+    current_user_email = get_jwt_identity()
+    doctor = Doctor.query.filter_by(email=current_user_email).first()
+    
     if not doctor:
-        return jsonify({"error": "Doctor not found"}), 404
+        return jsonify({'error': 'Unauthorized access'}), 403
 
-    if 'name' in data:
-        doctor.name = data['name']
-    if 'email' in data:
-        doctor.email = data['email']
-    if 'password' in data:
-        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-        doctor.password = hashed_password
-    if 'specialty' in data:
-        doctor.specialty = data['specialty']
+    data = request.get_json()
+    patient_id = data.get('patient_id')
+    new_score = data.get('health_score')
 
-    try:
-        db.session.commit()
-        return jsonify({"message": "Doctor updated successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    if not patient_id or new_score is None:
+        return jsonify({'error': 'Missing required data'}), 400
+
+    patient = Patient.query.get(patient_id)
+    
+    if not patient:
+        return jsonify({'error': 'Patient not found'}), 404
+    
+    patient.heart_score = new_score
+    db.session.commit()
+
+    return jsonify({'message': f"Updated health score for {patient.name} to {new_score}"}), 200
+
+
+@app.route('/doctor/files/<int:patient_id>', methods=['GET', 'OPTIONS'])
+@jwt_required(optional=True)
+def doctor_list_patient_files(patient_id):
+    # For preflight requests, return early without JWT verification.
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    # Now enforce that a token must be present.
+    current_user = get_jwt_identity()
+    if not current_user:
+        return jsonify({"error": "Missing token"}), 401
+
+    doctor = Doctor.query.filter_by(email=current_user).first()
+    if not doctor:
+        return jsonify({"error": "Unauthorized access"}), 403
+
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(patient_id))
+    if not os.path.exists(user_folder):
+        return jsonify({"files": []}), 200
+
+    files = os.listdir(user_folder)
+    return jsonify({"files": files}), 200
+
+
 
 # Logout User  
 @app.route('/logout', methods=['POST'])
@@ -789,6 +1055,7 @@ def get_file(filename):
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
 
+
 @app.route('/files/<filename>', methods=['DELETE'])
 @jwt_required()
 def delete_file(filename):
@@ -816,40 +1083,206 @@ def delete_file(filename):
 @app.route('/connect_watch', methods=['GET'])
 @jwt_required()
 def connect_watch():
-    verifier = base64.b64encode(os.urandom(32)).decode().rstrip("=")
-    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
-    os.environ["state"] = verifier
+    # Generate a random code_verifier
+    code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
+    
+    # Generate the code_challenge using SHA-256
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).decode().rstrip("=")
+    
+    # Store the code_verifier in the environment or session
+    os.environ["code_verifier"] = code_verifier
+    os.environ["fitbit_user"] = get_jwt_identity()
+    
+    # Return the code_challenge and client_id to the frontend
     client_id = os.getenv("CLIENT_ID")
-    return jsonify({'code_challenge': challenge, 'code_challenge_method': "S256", 'client_id': client_id})
+    return jsonify({
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
+        'client_id': client_id
+    })
 
 @app.route('/watch', methods=['GET'])
 def callback():
+    # Get the authorization code from the query parameters
     code = request.args.get('code')
+    if not code:
+        return jsonify({"error": "Authorization code not found"}), 400
+    
+    # Retrieve the stored code_verifier
+    code_verifier = os.environ.get("code_verifier")
+    if not code_verifier:
+        return jsonify({"error": "Code verifier not found"}), 400
+    
+    # Prepare the token request payload
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
-    redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
-    url = "https://api.fitbit.com/oauth2/token"
-    token_response = requests.post(url, data={
+    token_url = "https://api.fitbit.com/oauth2/token"
+    
+    payload = {
         'client_id': client_id,
         'grant_type': 'authorization_code',
         'code': code,
-        'code_verifier': os.getenv("state"),
-        'redirect_uri': redirect_uri
-    }, headers={
+        'code_verifier': code_verifier,
+        'redirect_uri': os.getenv("FITBIT_REDIRECT_URI")
+    }
+    
+    # Make the token request
+    response = requests.post(token_url, data=payload, headers={
         'Authorization': 'Basic ' + base64.b64encode(f"{client_id}:{client_secret}".encode()).decode(),
         'Content-Type': 'application/x-www-form-urlencoded'
     })
-    if token_response.status_code == 200:
-        access_token = token_response.json()['access_token']
-        refresh_token = token_response.json()['refresh_token']
-        ACCESS_TOKEN = access_token
+    
+    # Handle the response
+    if response.status_code == 200:
+        # Save the tokens
+        tokens = response.json()
         with open(TOKEN_FILE_PATH, "w") as file:
-            json.dump({'access_token': access_token, 'refresh_token': refresh_token}, file)
+            json.dump(tokens, file)
+        
         print("Successfully connected to Fitbit")
-        return jsonify({"message": "Successfully connected to Fitbit"})
+        return redirect("http://localhost:3001/patient-dashboard")
     else:
-        print("Failed to connect to Fitbit", token_response.json(), token_response.status_code)
-        return jsonify({"error": "Failed to connect to Fitbit"}), 500
+        print("Failed to connect to Fitbit", response.json(), response.status_code)
+        return jsonify({"error": "Failed to connect to Fitbit"}), 400
+    
+
+def get_fitbit_data(tries=1):
+    with open(TOKEN_FILE_PATH, "r") as file:
+        tokens = json.load(file)
+
+    print("Fetching Fitbit data...")
+    patient = Patient.query.filter_by(email=os.getenv('fitbit_user')).first()
+    access_token = tokens['access_token']
+    url_list = ["https://api.fitbit.com/1/user/-/activities/heart/date/today/1d/5min.json", "https://api.fitbit.com/1/user/-/activities/steps/date/today/1d.json", "https://api.fitbit.com/1/user/-/profile.json"]
+    responses = []
+    for url in url_list:
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json',
+            'Accept-Language': 'en_US'
+        })
+        print(url, response.status_code)
+        if response.status_code == 200:
+            data = response.json()
+            # print(data)
+            if 'heart' in url:
+                try:
+                    heart_rate = data['activities-heart-intraday']['dataset'][-1]['value']
+                    patient.avg_heartrate = heart_rate
+                    db.session.commit()
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
+                except:
+                    responses.append((jsonify({"error": "Data not present"}), 290))
+            elif 'steps' in url:
+                print('here')
+                try:
+                    steps = data['activities-steps'][0]['value']
+                    # Store in daily steps
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
+                except:
+                    responses.append(( jsonify({"error": "Data not present"}), 290))
+            # elif 'profile' in url:
+            #     try:
+            #         weight = str(data['weight'])+str(data['weightUnit'])
+            #         height = str(data['height'])+str(data['heightUnit'])
+            #         patient.weight = name
+            #         db.session.commit()
+            #         return jsonify({"message": "Data fetched successfully"}), 200
+            #     except:
+            #         return jsonify({"error": "Data not present"}), 290
+        else:
+            if response.status_code == 401:
+                access_token = Get_New_Access_Token(os.getenv("CLIENT_ID"), os.getenv("CLIENT_SECRET"))
+                if access_token and tries > 0:
+                    return get_fitbit_data(tries - 1)
+            return jsonify({"error": "Failed to fetch data from Fitbit"}), 500
+    return response
+
+# In refresh_fitbit_tokens function
+def refresh_fitbit_tokens(client_id, client_secret, refresh_token):
+    print("Attempting to refresh tokens...")
+    try:
+        response = requests.post(
+            "https://api.fitbit.com/oauth2/token",
+            headers={
+                "Authorization": "Basic " + base64.b64encode(
+                    f"{client_id}:{client_secret}".encode()
+                ).decode(),
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"Fitbit token refresh failed: {response.status_code} - {response.text}")
+            return None, None
+            
+        tokens = response.json()
+        with open(TOKEN_FILE_PATH, "w") as file:
+            json.dump(tokens, file)
+            
+        print("Fitbit token refresh successful!")
+        return tokens.get("access_token"), tokens.get("refresh_token")
+        
+    except Exception as e:
+        print(f"Token refresh error: {str(e)}")
+        return None, None
+    
+
+def load_tokens_from_file():
+    with open(TOKEN_FILE_PATH, "r") as file:
+        tokens = json.load(file)
+        return tokens.get("access_token"), tokens.get("refresh_token")
+
+def Get_New_Access_Token(client_id, client_secret):
+    try:
+        access_token, refresh_token = load_tokens_from_file()
+    except FileNotFoundError:
+        refresh_token = input("No token file found. Please enter a valid refresh token : ")
+    access_token, refresh_token = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+    return access_token
+
+########################################################################################################################
+# Email sending logic
+
+def welcome_user(email, name):
+    subject = "Welcome to Super Heart!"
+    body = f"Hello {name}, this is a welcome message.\nWelcome to Costco, I love you."
+
+    em = EmailMessage()
+    em['From'] = gmail_user
+    em['To'] = email
+    em['Subject'] = subject
+    em.set_content(body)
+
+    context = ssl.create_default_context()
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+        smtp.login(gmail_user, gmail_pass)
+        smtp.sendmail(gmail_user, email, em.as_string())
+
+def notify_user(email, name):
+    print("NOTIFYING")
+    print("EMAIL: " + email)
+    print("NAME: " + name)
+    subject = "Your account info has recently been updated!"
+    body = f"Hello {name}, this is a confirmation message.\n*McDonald's ringing noise*"
+
+    em = EmailMessage()
+    em['From'] = gmail_user
+    em['To'] = email
+    em['Subject'] = subject
+    em.set_content(body)
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        smtp.login(gmail_user, gmail_pass)
+        smtp.sendmail(gmail_user, email, em.as_string())
+        print("NOTIFIED")
 
 
 if __name__ == '__main__':

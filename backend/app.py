@@ -388,72 +388,72 @@ def get_weekly_heart_rate():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/get_weekly_spo2', methods=['GET'])
-@jwt_required()
-def get_weekly_spo2():
-    user_email = get_jwt_identity()
-    patient = Patient.query.filter_by(email=user_email).first()
+# @app.route('/get_weekly_spo2', methods=['GET'])
+# @jwt_required()
+# def get_weekly_spo2():
+#     user_email = get_jwt_identity()
+#     patient = Patient.query.filter_by(email=user_email).first()
     
-    if not patient:
-        return jsonify({"error": "Patient not found"}), 404
+#     if not patient:
+#         return jsonify({"error": "Patient not found"}), 404
 
-    try:
-        end_date = datetime.date.today()
-        start_date = end_date - datetime.timedelta(days=6)
+#     try:
+#         end_date = datetime.date.today()
+#         start_date = end_date - datetime.timedelta(days=6)
         
-        access_token, _ = load_tokens_from_file()
-        if not access_token:
-            return jsonify({"error": "Fitbit not connected"}), 400
+#         access_token, _ = load_tokens_from_file()
+#         if not access_token:
+#             return jsonify({"error": "Fitbit not connected"}), 400
 
-        url = f"https://api.fitbit.com/1/user/-/spo2/date/{start_date}/{end_date}.json"
-        response = requests.get(url, headers={
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/json'
-        })
+#         url = f"https://api.fitbit.com/1/user/-/spo2/date/{start_date}/{end_date}.json"
+#         response = requests.get(url, headers={
+#             'Authorization': f'Bearer {access_token}',
+#             'Accept': 'application/json'
+#         })
 
-        if response.status_code == 401:
-            client_id = os.getenv("CLIENT_ID")
-            client_secret = os.getenv("CLIENT_SECRET")
-            _, refresh_token = load_tokens_from_file()
-            access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+#         if response.status_code == 401:
+#             client_id = os.getenv("CLIENT_ID")
+#             client_secret = os.getenv("CLIENT_SECRET")
+#             _, refresh_token = load_tokens_from_file()
+#             access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
             
-            if not access_token:
-                return jsonify({"error": "Failed to refresh Fitbit token"}), 500
+#             if not access_token:
+#                 return jsonify({"error": "Failed to refresh Fitbit token"}), 500
 
-            response = requests.get(url, headers={
-                'Authorization': f'Bearer {access_token}',
-                'Accept': 'application/json'
-            })
+#             response = requests.get(url, headers={
+#                 'Authorization': f'Bearer {access_token}',
+#                 'Accept': 'application/json'
+#             })
 
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to fetch Fitbit data"}), 500
+#         if response.status_code != 200:
+#             return jsonify({"error": "Failed to fetch Fitbit data"}), 500
 
-        fitbit_data = response.json().get('spo2', [])
-        spo2_dict = {}
+#         fitbit_data = response.json().get('spo2', [])
+#         spo2_dict = {}
         
-        # Handle Fitbit's different response structure
-        for entry in fitbit_data:
-            date = entry['dateTime']
-            # Check for both possible response formats
-            if 'minutes' in entry['value']:
-                # Daily average format
-                spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
-            else:
-                # Direct value format
-                spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
+#         # Handle Fitbit's different response structure
+#         for entry in fitbit_data:
+#             date = entry['dateTime']
+#             # Check for both possible response formats
+#             if 'minutes' in entry['value']:
+#                 # Daily average format
+#                 spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
+#             else:
+#                 # Direct value format
+#                 spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
         
-        complete_data = []
-        for i in range(7):
-            date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
-            complete_data.append({
-                "date": date,
-                "spo2": spo2_dict.get(date, patient.spo2)
-            })
+#         complete_data = []
+#         for i in range(7):
+#             date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
+#             complete_data.append({
+#                 "date": date,
+#                 "spo2": spo2_dict.get(date, patient.spo2)
+#             })
 
-        return jsonify({"weekly_spo2": complete_data}), 200
+#         return jsonify({"weekly_spo2": complete_data}), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
     
 
 ############################################################################################################################

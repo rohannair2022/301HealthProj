@@ -1,3 +1,4 @@
+import datetime
 from flask import Flask, redirect, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -24,6 +25,7 @@ api = Api(app, version='1.0', title='Health API', description='A simple Health A
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 UPLOAD_FOLDER = 'uploads'
 TOKEN_FILE_PATH = 'fitbit_token.json'
+USER = ''
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -615,14 +617,17 @@ def submit_test():
 def get_patient_data():
     # Get the email from the JWT token for verification
     user_email = get_jwt_identity()
-    
-    if os.getenv('fitbit_user') == user_email:
+    with open(TOKEN_FILE_PATH, "r") as file:
+        tokens = json.load(file)
+    USER = tokens['user']
+    # print(user_email, "Stored ", USER)
+    if USER == user_email:
         response = get_fitbit_data(2)
         print(response)
-        # if response[1] != 200:
-        #     print("Failed to fetch Fitbit data/ Data is invalid")
-        # else:
-        #     print("Fitbit data fetched successfully")
+        if len(response) < 2:
+            print("Failed to fetch Fitbit data/ Data is invalid")
+        else:
+            print("Fitbit data fetched successfully")
     # else:
     #     print("User email:", user_email)
     # Verify this user is requesting their own data
@@ -820,9 +825,14 @@ def delete_file(filename):
 @app.route('/connect_watch', methods=['GET'])
 @jwt_required()
 def connect_watch():
-    verifier = base64.b64encode(os.urandom(32)).decode().rstrip("=")
-    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
-    os.environ["state"] = verifier
+    if os.getenv("state") == '':
+        verifier = base64.b64encode(os.urandom(32)).decode().rstrip("=")
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+        os.environ["state"] = verifier
+    else:
+        verifier = os.getenv("state")
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+    print("State: ", verifier)
     # session['state'] = verifier
     # session['fitbit_user'] = get_jwt_identity()
     os.environ["fitbit_user"] = get_jwt_identity()
@@ -831,14 +841,14 @@ def connect_watch():
 
 @app.route('/watch', methods=['GET'])
 def callback():
-    print('callback')
+    # print('callback')
     code = request.args.get('code')
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
     # redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
     url = "https://api.fitbit.com/oauth2/token"
     verifier = os.getenv("state")
-    print(verifier, code)
+    print("Verifier: ", verifier)
     token_response = requests.post(url, data={
         'client_id': client_id,
         'grant_type': 'authorization_code',
@@ -850,18 +860,19 @@ def callback():
         'Content-Type': 'application/x-www-form-urlencoded'
     })
     if token_response.status_code == 200:
-        User = os.getenv("fitbit_user")
-
+        USER = os.getenv("fitbit_user")
+        print("Fitbit User: ",USER)
         access_token = token_response.json()['access_token']
         refresh_token = token_response.json()['refresh_token']
-        ACCESS_TOKEN = access_token
         with open(TOKEN_FILE_PATH, "w") as file:
-            json.dump({'access_token': access_token, 'refresh_token': refresh_token}, file)
+            json.dump({'access_token': access_token, 'refresh_token': refresh_token, 'user': USER}, file)
         print("Successfully connected to Fitbit")
-        return redirect("http://localhost:3001/patient-dashboard") # Change this to 3000 for the frontend
+        return redirect("http://localhost:3000/patient-dashboard") # Change this to 3000 for the frontend
     else:
+        os.environ["fitbit_user"] = ''
+        USER = ''
         print("Failed to connect to Fitbit", token_response.json(), token_response.status_code)
-        return jsonify({"message": "Succesful Connection"}), 205
+        return jsonify({"error": "Failed to connect to Fitbit"}), 500
 
 
 def get_fitbit_data(tries=1):
@@ -869,9 +880,9 @@ def get_fitbit_data(tries=1):
         tokens = json.load(file)
 
     print("Fetching Fitbit data...")
-    patient = Patient.query.filter_by(email=os.getenv('fitbit_user')).first()
-    access_token = tokens['access_token']
-    url_list = ["https://api.fitbit.com/1/user/-/activities/heart/date/today/1d/5min.json", "https://api.fitbit.com/1/user/-/activities/steps/date/today/1d.json", "https://api.fitbit.com/1/user/-/profile.json"]
+    patient = Patient.query.filter_by(email=tokens['user']).first()
+    access_token = tokens['access_token'] 
+    url_list = ["https://api.fitbit.com/1/user/-/activities/heart/date/today/1d/5min.json", "https://api.fitbit.com/1/user/-/activities/steps/date/today/1d.json", "https://api.fitbit.com/1/user/-/br/date/today/all.json", "https://api.fitbit.com/1/user/-/spo2/date/today.json", f"https://api.fitbit.com/1/user/-/ecg/list.json?afterDate={datetime.datetime.today().date()}&sort=asc&limit=1&offset=0", f"https://api.fitbit.com/1.2/user/-/sleep/date/{datetime.datetime.today().date()}.json"]
     responses = []
     for url in url_list:
         response = requests.get(url, headers={
@@ -888,19 +899,60 @@ def get_fitbit_data(tries=1):
                     heart_rate = data['activities-heart-intraday']['dataset'][-1]['value']
                     patient.avg_heartrate = heart_rate
                     db.session.commit()
+                    # print(heart_rate)
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
                     responses.append((jsonify({"error": "Data not present"}), 290))
             elif 'steps' in url:
-                print('here')
+                # print('here')
                 try:
                     steps = data['activities-steps'][0]['value']
-                    print(steps)
+                    # print(steps)
                     patient.steps = steps
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
                     responses.append(( jsonify({"error": "Data not present"}), 290))
+
+            elif 'br' in url:
+                # print('Breathing Rate:', data['br'][0]['value']['breathingRate'])
+                try:
+                    breating_rate = data['br'][0]['value']['fullSleepSummary']
+                    patient.breathing_rate = breating_rate
+                    print('Breathing Rate:', breating_rate)
+                    db.session.commit()
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
+                except:
+                    responses.append((jsonify({"error": "Data not present"}), 290))
+            elif 'spo2' in url:
+                # print('Spo2:', data['value']['avg'])
+                try:
+                    spo2 = data['value']['avg']
+                    patient.spo2 = spo2
+                    print("Spo2: ", spo2)
+                    db.session.commit()
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
+                except:
+                    responses.append((jsonify({"error": "Data not present"}), 290))
+            elif 'ecg' in url:
+                # print('ECG:', data['ecgReadings'][0]['resultClassification'])
+                try:
+                    ecg = data['ecgReadings'][0]['resultClassification']
+                    patient.ecg = ecg
+                    print("ECG: ", ecg)
+                    db.session.commit()
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
+                except:
+                    responses.append((jsonify({"error": "Data not present"}), 290))
+            elif 'sleep' in url:
+                try:
+                    sleep = data['sleep'][0]['minutesAsleep']
+                    patient.sleep = sleep
+                    print("Sleep: ", sleep)
+                    db.session.commit()
+                    responses.append((jsonify({"message": "Data fetched successfully"}), 200))
+                except:
+                    responses.append((jsonify({"error": "Data not present"}), 290))
             # elif 'profile' in url:
             #     try:
             #         weight = str(data['weight'])+str(data['weightUnit'])
@@ -915,8 +967,8 @@ def get_fitbit_data(tries=1):
                 access_token = Get_New_Access_Token(os.getenv("CLIENT_ID"), os.getenv("CLIENT_SECRET"))
                 if access_token and tries > 0:
                     return get_fitbit_data(tries - 1)
-            return jsonify({"error": "Failed to fetch data from Fitbit"}), 500
-    return response
+            return jsonify({"error": "Failed to fetch data from Fitbit", "url": url}), 500
+    return responses
 
 # Refresh Fitbit Tokens Sqeuence
 def refresh_fitbit_tokens(client_id, client_secret, refresh_token):
@@ -931,9 +983,10 @@ def refresh_fitbit_tokens(client_id, client_secret, refresh_token):
         "refresh_token": refresh_token
     }
     json_data = requests.post(url, headers=headers, data=data)
-    if json_data.status_code != 200:
+    if json_data.status_code != 200 or "access_token" not in json_data.json():
         print("Failed to refresh Fitbit tokens", json_data.json(), json_data.status_code)
         return None, None
+    print(json_data)
     access_token = json_data["access_token"]
     new_refresh_token = json_data["refresh_token"]
     tokens = {

@@ -17,7 +17,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('postgres-setup-url') # Replace <user>, <password>, <database_name>
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:PostgresHuh@localhost:5432/newDB" # Replace <user>, <password>, <database_name>
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') # DONT FORGET ABOUT THE .env file that's gitignored
 api = Api(app, version='1.0', title='Health API', description='A simple Health API')
@@ -44,11 +44,12 @@ class Patient(db.Model):
     phone_number = db.Column(db.String(15), nullable=False, unique=True, default="000-000-0000")  # Default phone number
     avg_heartrate = db.Column(db.Integer, default=70)
     heart_score = db.Column(db.Integer, default=0)
-    steps = db.Column(db.Integer, default=0)
+    steps = db.Column(db.Integer, default=0) # NOTE: this is the latest step field now
     breathing_rate = db.Column(db.Integer, default=16)
     spo2 = db.Column(db.Float, default=98.0)
     ecg = db.Column(db.Text, default="Normal")
     sleep = db.Column(db.Float, default=7.0)
+
 
 
 class Doctor(db.Model):
@@ -83,7 +84,6 @@ class Friendship(db.Model):
     friend_doctor = db.relationship('Doctor', foreign_keys=[friend_id],
                                   primaryjoin="and_(Friendship.friend_id==Doctor.u_id, "
                                             "Friendship.friend_type=='doctor')")
-
 
 # UPDATED ROUTES
 @app.route('/register/<type>', methods=['POST'])
@@ -264,7 +264,197 @@ def remove_patient(u_id):
     db.session.commit()
 
     return jsonify({"message": "Patient and related friendships removed successfully"}), 200
+@app.route('/get_weekly_steps', methods=['GET'])
+@jwt_required()
+def get_weekly_steps():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=user_email).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
 
+    try:
+        # Get Fitbit data for the last 7 days
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=6)
+        
+        # Fetch the access token
+        access_token, _ = load_tokens_from_file()
+        if not access_token:
+            return jsonify({"error": "Fitbit not connected"}), 400
+
+        # Fetch step data from Fitbit API
+        url = f"https://api.fitbit.com/1/user/-/activities/steps/date/{start_date}/{end_date}.json"
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        # Handle token expiration
+        if response.status_code == 401:
+            # Refresh the token and retry
+            client_id = os.getenv("CLIENT_ID")
+            client_secret = os.getenv("CLIENT_SECRET")
+            _, refresh_token = load_tokens_from_file()
+            access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+            
+            if not access_token:
+                return jsonify({"error": "Failed to refresh Fitbit token"}), 500
+
+            # Retry the request with the new token
+            response = requests.get(url, headers={
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            })
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch Fitbit data"}), 500
+
+        # Process the response
+        fitbit_data = response.json().get('activities-steps', [])
+        steps_dict = {entry['dateTime']: int(entry['value']) for entry in fitbit_data}
+        
+        # Fill in missing days with 0 steps
+        complete_data = []
+        for i in range(7):
+            date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
+            complete_data.append({
+                "date": date,
+                "steps": steps_dict.get(date, 0)
+            })
+
+        return jsonify({"weekly_steps": complete_data}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Uncomment and update these routes in app.py
+@app.route('/get_weekly_heart_rate', methods=['GET'])
+@jwt_required()
+def get_weekly_heart_rate():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=user_email).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    try:
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=6)
+        
+        access_token, _ = load_tokens_from_file()
+        if not access_token:
+            return jsonify({"error": "Fitbit not connected"}), 400
+
+        url = f"https://api.fitbit.com/1/user/-/activities/heart/date/{start_date}/{end_date}.json"
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        if response.status_code == 401:
+            client_id = os.getenv("CLIENT_ID")
+            client_secret = os.getenv("CLIENT_SECRET")
+            _, refresh_token = load_tokens_from_file()
+            access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+            
+            if not access_token:
+                return jsonify({"error": "Failed to refresh Fitbit token"}), 500
+
+            response = requests.get(url, headers={
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            })
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch Fitbit data"}), 500
+
+        fitbit_data = response.json().get('activities-heart', [])
+        heart_rate_dict = {}
+        for entry in fitbit_data:
+            date = entry['dateTime']
+            heart_rate_dict[date] = entry['value'].get('restingHeartRate', patient.avg_heartrate)
+
+        complete_data = []
+        for i in range(7):
+            date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
+            complete_data.append({
+                "date": date,
+                "heart_rate": heart_rate_dict.get(date, patient.avg_heartrate)
+            })
+
+        return jsonify({"weekly_heart_rate": complete_data}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/get_weekly_spo2', methods=['GET'])
+@jwt_required()
+def get_weekly_spo2():
+    user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=user_email).first()
+    
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    try:
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=6)
+        
+        access_token, _ = load_tokens_from_file()
+        if not access_token:
+            return jsonify({"error": "Fitbit not connected"}), 400
+
+        url = f"https://api.fitbit.com/1/user/-/spo2/date/{start_date}/{end_date}.json"
+        response = requests.get(url, headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        if response.status_code == 401:
+            client_id = os.getenv("CLIENT_ID")
+            client_secret = os.getenv("CLIENT_SECRET")
+            _, refresh_token = load_tokens_from_file()
+            access_token, _ = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
+            
+            if not access_token:
+                return jsonify({"error": "Failed to refresh Fitbit token"}), 500
+
+            response = requests.get(url, headers={
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            })
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch Fitbit data"}), 500
+
+        fitbit_data = response.json().get('spo2', [])
+        spo2_dict = {}
+        
+        # Handle Fitbit's different response structure
+        for entry in fitbit_data:
+            date = entry['dateTime']
+            # Check for both possible response formats
+            if 'minutes' in entry['value']:
+                # Daily average format
+                spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
+            else:
+                # Direct value format
+                spo2_dict[date] = entry['value'].get('avg', patient.spo2 or 98.0)
+        
+        complete_data = []
+        for i in range(7):
+            date = (end_date - datetime.timedelta(days=6-i)).strftime('%Y-%m-%d')
+            complete_data.append({
+                "date": date,
+                "spo2": spo2_dict.get(date, patient.spo2)
+            })
+
+        return jsonify({"weekly_spo2": complete_data}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 
 ############################################################################################################################
 # FRIEND ROUTES
@@ -835,14 +1025,30 @@ def connect_watch():
     print("State: ", verifier)
     # session['state'] = verifier
     # session['fitbit_user'] = get_jwt_identity()
+    # os.environ["code_verifier"] = code_verifier Dont need this anymore
     os.environ["fitbit_user"] = get_jwt_identity()
+    
+    # Return the code_challenge and client_id to the frontend
     client_id = os.getenv("CLIENT_ID")
-    return jsonify({'code_challenge': challenge, 'code_challenge_method': "S256", 'client_id': client_id})
+    return jsonify({
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
+        'client_id': client_id
+    })
 
 @app.route('/watch', methods=['GET'])
 def callback():
-    # print('callback')
+    # Get the authorization code from the query parameters
     code = request.args.get('code')
+    if not code:
+        return jsonify({"error": "Authorization code not found"}), 400
+    
+    # Retrieve the stored code_verifier
+    code_verifier = os.environ.get("code_verifier")
+    if not code_verifier:
+        return jsonify({"error": "Code verifier not found"}), 400
+    
+    # Prepare the token request payload
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
     # redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
@@ -853,9 +1059,12 @@ def callback():
         'client_id': client_id,
         'grant_type': 'authorization_code',
         'code': code,
-        'code_verifier': verifier,
-        # 'redirect_uri': redirect_uri
-    }, headers={
+        'code_verifier': code_verifier,
+        'redirect_uri': os.getenv("FITBIT_REDIRECT_URI")
+    }
+    
+    # Make the token request
+    response = requests.post(token_url, data=payload, headers={
         'Authorization': 'Basic ' + base64.b64encode(f"{client_id}:{client_secret}".encode()).decode(),
         'Content-Type': 'application/x-www-form-urlencoded'
     })
@@ -907,7 +1116,7 @@ def get_fitbit_data(tries=1):
                 # print('here')
                 try:
                     steps = data['activities-steps'][0]['value']
-                    # print(steps)
+                    # Store in daily steps
                     patient.steps = steps
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
@@ -970,33 +1179,38 @@ def get_fitbit_data(tries=1):
             return jsonify({"error": "Failed to fetch data from Fitbit", "url": url}), 500
     return responses
 
-# Refresh Fitbit Tokens Sqeuence
+# In refresh_fitbit_tokens function
 def refresh_fitbit_tokens(client_id, client_secret, refresh_token):
     print("Attempting to refresh tokens...")
-    url = "https://api.fitbit.com/oauth2/token"
-    headers = {
-        "Authorization": "Basic " + base64.b64encode((client_id + ":" + client_secret).encode()).decode(),
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    data = {
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token
-    }
-    json_data = requests.post(url, headers=headers, data=data)
-    if json_data.status_code != 200 or "access_token" not in json_data.json():
-        print("Failed to refresh Fitbit tokens", json_data.json(), json_data.status_code)
+    try:
+        url = "https://api.fitbit.com/oauth2/token"
+        headers = {
+            "Authorization": "Basic " + base64.b64encode((client_id + ":" + client_secret).encode()).decode(),
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token
+        }
+        json_data = requests.post(url, headers=headers, data=data)
+        if json_data.status_code != 200 or "access_token" not in json_data.json():
+            print("Failed to refresh Fitbit tokens", json_data.json(), json_data.status_code)
+            return None, None
+        print(json_data)
+        access_token = json_data["access_token"]
+        new_refresh_token = json_data["refresh_token"]
+        tokens = {
+            "access_token": access_token,
+            "refresh_token": new_refresh_token
+        }
+        with open(TOKEN_FILE_PATH, "w") as file:
+            json.dump(tokens, file)
+        print("Fitbit token refresh successful!")
+        return access_token, new_refresh_token
+    except Exception as e:
+        print("Error refreshing Fitbit tokens:", str(e))
         return None, None
-    print(json_data)
-    access_token = json_data["access_token"]
-    new_refresh_token = json_data["refresh_token"]
-    tokens = {
-        "access_token": access_token,
-        "refresh_token": new_refresh_token
-    }
-    with open(TOKEN_FILE_PATH, "w") as file:
-        json.dump(tokens, file)
-    print("Fitbit token refresh successful!")
-    return access_token, new_refresh_token
+
 
 def load_tokens_from_file():
     with open(TOKEN_FILE_PATH, "r") as file:

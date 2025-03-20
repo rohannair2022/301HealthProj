@@ -807,24 +807,33 @@ def submit_test():
 def get_patient_data():
     # Get the email from the JWT token for verification
     user_email = get_jwt_identity()
-    with open(TOKEN_FILE_PATH, "r") as file:
-        tokens = json.load(file)
-    USER = tokens['user']
-    # print(user_email, "Stored ", USER)
-    if USER == user_email:
-        response = get_fitbit_data(2)
-        print(response)
-        if len(response) < 2:
-            print("Failed to fetch Fitbit data/ Data is invalid")
-        else:
-            print("Fitbit data fetched successfully")
-    # else:
-    #     print("User email:", user_email)
-    # Verify this user is requesting their own data
-    patient = Patient.query.filter_by(email=str(user_email)).first()
+    
+    # First check if Fitbit token exists and fetch data if needed
+    try:
+        with open(TOKEN_FILE_PATH, "r") as file:
+            tokens = json.load(file)
+            
+        fitbit_user = tokens.get('user')
+        if fitbit_user == user_email:
+            # Fetch the latest data from Fitbit
+            get_fitbit_data(2)
+    except (FileNotFoundError, KeyError):
+        # Token file doesn't exist or doesn't contain user key
+        pass
+        
+    # Retrieve patient data
+    patient = Patient.query.filter_by(email=user_email).first()
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
-
+    
+    # Calculate and update heart score
+    new_score = calculate_heart_score(patient)
+    
+    # Only update if the score has changed
+    if new_score != patient.heart_score:
+        patient.heart_score = new_score
+        db.session.commit()
+    
     return jsonify({
         "patient": {
             "name": patient.name,
@@ -1225,6 +1234,145 @@ def Get_New_Access_Token(client_id, client_secret):
         refresh_token = input("No token file found. Please enter a valid refresh token : ")
     access_token, refresh_token = refresh_fitbit_tokens(client_id, client_secret, refresh_token)
     return access_token
+
+########################################################################################################################
+def calculate_heart_score(patient, fitbit_data=None):
+    """
+    Calculate a comprehensive heart score based on:
+    1. Previous heart score (weighted less over time)
+    2. Average heart rate (compared to age-based healthy ranges)
+    3. Daily steps (compared to recommended 10,000 steps)
+    4. Sleep duration (compared to recommended 7-9 hours)
+    5. Breathing rate (compared to normal range of 12-20 breaths/min)
+    6. SpO2 levels (compared to healthy range of 95-100%)
+    7. ECG readings (normal vs abnormal)
+    
+    Returns a score from 0-100
+    """
+    # Start with base score or previous score
+    previous_score = patient.heart_score if patient.heart_score else 50
+    
+    # Define weights for different factors
+    weights = {
+        'previous_score': 0.3,  # Previous score weight decreases over time
+        'heart_rate': 0.15,
+        'steps': 0.15,
+        'sleep': 0.15,
+        'breathing_rate': 0.1,
+        'spo2': 0.1,
+        'ecg': 0.05
+    }
+    
+    # Calculate component scores
+    scores = {}
+    
+    # Previous score component
+    scores['previous_score'] = previous_score
+    
+    # Heart rate component (normal resting is typically 60-100 bpm)
+    avg_heart_rate = patient.avg_heartrate
+    if avg_heart_rate:
+        if avg_heart_rate < 60:
+            # Unusually low - score linearly from 50-80
+            scores['heart_rate'] = max(50, 80 - (60 - avg_heart_rate) * 2)
+        elif 60 <= avg_heart_rate <= 70:
+            # Excellent range
+            scores['heart_rate'] = 100
+        elif 70 < avg_heart_rate <= 80:
+            # Very good range
+            scores['heart_rate'] = 90
+        elif 80 < avg_heart_rate <= 90:
+            # Good range
+            scores['heart_rate'] = 80
+        elif 90 < avg_heart_rate <= 100:
+            # Normal range
+            scores['heart_rate'] = 70
+        else:
+            # Above normal - score decreases as heart rate increases
+            scores['heart_rate'] = max(0, 70 - (avg_heart_rate - 100) * 1.5)
+    else:
+        scores['heart_rate'] = 50  # Default if no data
+    
+    # Steps component (10,000 steps is recommended)
+    steps = patient.steps
+    if steps:
+        scores['steps'] = min(100, steps / 100)  # 10,000 steps = 100 points
+    else:
+        scores['steps'] = 50  # Default if no data
+    
+    # Sleep component (7-9 hours recommended)
+    sleep_minutes = patient.sleep
+    if sleep_minutes:
+        sleep_hours = sleep_minutes / 60
+        if 7 <= sleep_hours <= 9:
+            # Optimal range
+            scores['sleep'] = 100
+        elif 6 <= sleep_hours < 7 or 9 < sleep_hours <= 10:
+            # Good range
+            scores['sleep'] = 80
+        elif 5 <= sleep_hours < 6 or 10 < sleep_hours <= 11:
+            # Fair range
+            scores['sleep'] = 60
+        else:
+            # Poor range
+            scores['sleep'] = 40
+    else:
+        scores['sleep'] = 50  # Default if no data
+    
+    # Breathing rate component (12-20 breaths/min is normal)
+    breathing_rate = patient.breathing_rate
+    if breathing_rate:
+        if 12 <= breathing_rate <= 20:
+            # Normal range
+            scores['breathing_rate'] = 100
+        elif 10 <= breathing_rate < 12 or 20 < breathing_rate <= 22:
+            # Slightly outside normal range
+            scores['breathing_rate'] = 80
+        elif 8 <= breathing_rate < 10 or 22 < breathing_rate <= 25:
+            # Moderately outside normal range
+            scores['breathing_rate'] = 60
+        else:
+            # Significantly outside normal range
+            scores['breathing_rate'] = 40
+    else:
+        scores['breathing_rate'] = 50  # Default if no data
+    
+    # SpO2 component (95-100% is normal)
+    spo2 = patient.spo2
+    if spo2:
+        if 95 <= spo2 <= 100:
+            # Normal range
+            scores['spo2'] = 100
+        elif 90 <= spo2 < 95:
+            # Mild hypoxemia
+            scores['spo2'] = 70
+        elif 85 <= spo2 < 90:
+            # Moderate hypoxemia
+            scores['spo2'] = 40
+        else:
+            # Severe hypoxemia
+            scores['spo2'] = 10
+    else:
+        scores['spo2'] = 50  # Default if no data
+    
+    # ECG component
+    ecg = patient.ecg
+    if ecg:
+        if ecg == "Normal":
+            scores['ecg'] = 100
+        elif ecg == "Inconclusive":
+            scores['ecg'] = 60
+        else:
+            # Any abnormal reading
+            scores['ecg'] = 0
+    else:
+        scores['ecg'] = 50  # Default if no data
+    
+    # Calculate weighted score
+    final_score = sum(scores[key] * weights[key] for key in weights)
+    
+    # Round to nearest integer
+    return round(final_score)
 
 ########################################################################################################################
 

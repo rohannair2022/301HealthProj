@@ -214,6 +214,18 @@ const ProfilePage = () => {
     setStep(1);
   };
 
+  useEffect(() => {
+    // Check the saved theme from localStorage
+    const savedTheme = localStorage.getItem("theme");
+
+    // Apply the saved theme if it exists
+    if (savedTheme === "dark") {
+      document.body.classList.add("dark-mode");
+    } else {
+      document.body.classList.remove("dark-mode");
+    }
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({

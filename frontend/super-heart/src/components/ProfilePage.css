@@ -1,3 +1,4 @@
+/* Button */
 .back-button {
     position: absolute;
     top: 16px;
@@ -22,20 +23,19 @@
     font-size: 24px;
 }
 
+/* Dark mode styles */
+body.dark-mode {
+    --bg-primary: #1a1b1e;
+    --bg-secondary: #2d2e32;
+    --bg-hover: rgba(255, 255, 255, 0.05);
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --border-color: #404040;
+    --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    --highlight-color: #5ba89e;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* Container */
 .container {
     width: 90vw;
     max-width: 1200px;
@@ -48,12 +48,7 @@
     border-radius: 12px;
 }
 
-
-
-
-
-
-
+/* Info spot */
 .info-spot {
     background-color: var(--bg-secondary);
     filter: brightness(95%);
@@ -64,12 +59,14 @@
     text-align: center;
     position: relative;
     transition: filter 0.3s ease;
+    color: var(--text-primary);  /* Text color */
 }
 
 .info-spot:hover {
     filter: brightness(85%);
 }
 
+/* Edit icon */
 .edit-icon {
     position: absolute;
     top: 50%;
@@ -86,10 +83,6 @@
     opacity: 1;
 }
 
-
-
-
-
 /* Modals */
 .modal-overlay {
     position: fixed;
@@ -104,12 +97,25 @@
     z-index: 1000; /* Ensure the modal is on top */
 }
 
+.modal {
+    background-color: var(--bg-primary);
+    padding: 20px;
+    border-radius: 8px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+    color: var(--text-primary);  /* Text color for modals */
+}
+
 .modal input {
     width: 100%;
     padding: 10px;
     margin: 10px 0;
     border-radius: 5px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color); /* Border color */
+    color: var(--text-primary);  /* Text color for inputs */
+    background-color: var(--bg-secondary);  /* Input background */
 }
 
 .modal-actions {
@@ -121,11 +127,11 @@
 .modal-actions button {
     padding: 5px 10px;
     border-radius: 5px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     background-color: #007BFF;
     color: white;
     cursor: pointer;
-    flex: 1; 
+    flex: 1;
     margin: 0 5px;
 }
 
@@ -142,54 +148,43 @@
     background-color: #aaa;
 }
 
-
+/* Name Modal */
 .name-modal {
-    background: white;
+    background-color: var(--bg-primary);
     padding: 20px;
     border-radius: 8px;
     width: 350px;
     text-align: center;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
     position: relative;
+    color: var(--text-primary);  /* Text color */
 }
 
-
+/* Email Modal */
 .email-modal {
-    background: white;
+    background-color: var(--bg-primary);
     padding: 20px;
     border-radius: 8px;
     width: 350px;
     text-align: center;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
     position: relative;
+    color: var(--text-primary);  /* Text color */
 }
-  
-  
+
+/* Password Modal */
 .password-modal {
-    background: white;
+    background-color: var(--bg-primary);
     padding: 20px;
     border-radius: 8px;
     width: 350px;
     text-align: center;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
     position: relative;
+    color: var(--text-primary);  /* Text color */
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* Edit name icon */
 .edit-name-icon {
     font-size: 18px;
     color: var(--text-secondary);
@@ -202,19 +197,17 @@
     opacity: 1;
 }
 
-
-
-
-
-
+/* Name container */
 .name-container {
     display: flex;
     align-items: center;
     display: flex;
     flex-direction: row;
     gap: 10px;
+    color: var(--text-primary);  /* Text color */
 }
 
+/* Profile info */
 .profile-info {
     display: flex;
     align-items: center;
@@ -224,8 +217,11 @@
 .profile-text {
     display: flex;
     flex-direction: column;
+    color: var(--text-primary);  /* Text color */
 }
 
+/* Profile icon */
 .profile-icon {
     font-size: clamp(100px, 15vw, 200px);
+    color: var(--text-primary);  /* Icon color */
 }

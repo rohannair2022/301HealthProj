@@ -262,7 +262,7 @@ const PatientDashboard = () => {
 
     // Profile page navigation
   const goToProfile = () => {
-      navigate('/patient-profile', { state: { userData } });
+      navigate('/patient-profile', { state: { userData, isDarkMode } });
   };
 
   return (
@@ -281,7 +281,7 @@ const PatientDashboard = () => {
             <i className="fas fa-home"></i>
             Dashboard
           </li>
-          <li
+          {/* <li
             onClick={() => {
               setUpload(false);
               setHome(false);
@@ -290,7 +290,7 @@ const PatientDashboard = () => {
           >
             <i className="fas fa-user-friends"></i>
             Friends
-          </li>
+          </li> */}
           <li
             onClick={() => {
               setUpload(false);

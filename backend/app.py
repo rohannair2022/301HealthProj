@@ -1251,38 +1251,138 @@ def Get_New_Access_Token(client_id, client_secret):
 # Email sending logic
 
 def welcome_user(email, name):
-    subject = "Welcome to Super Heart!"
-    body = f"Hello {name}, this is a welcome message.\nWelcome to Costco, I love you."
+    gmail_user = "superhear.csc301@gmail.com"
+    gmail_pass = os.getenv("gmail_pass")
 
-    em = EmailMessage()
-    em['From'] = gmail_user
-    em['To'] = email
-    em['Subject'] = subject
-    em.set_content(body)
+    msg = EmailMessage()
+    msg["From"] = gmail_user
+    msg["To"] = email
+    msg["Subject"] = "Welcome to Super Heart!"
 
-    context = ssl.create_default_context()
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.5;
+                color: #333;
+            }}
+            h1 {{
+                color: #d22;
+            }}
+            a {{
+                color: #007bff;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Welcome to Super Heart, {name}!</h1>
+        <p>We're excited to have you on board. Here's what you can do next:</p>
+        <ul>
+            <li>Check your heart score insights.</li>
+            <li>Track your daily steps.</li>
+            <li>Connect with Fitbit to gain a more detailed view of your health data.</li>
+        </ul>
+        <h6>Welcome to Costco, I love you</h6>
+        <p><strong>Best,</strong><br>The Super Heart Team</p>
+    </body>
+    </html>
+    """
 
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
-        smtp.login(gmail_user, gmail_pass)
-        smtp.sendmail(gmail_user, email, em.as_string())
+    msg.set_content("Your email client does not support HTML.")
+    msg.add_alternative(html_content, subtype="html")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+        print("Email sent successfully!")
+    except Exception as e:
+        print(f"Error: Sending email failed! Details: {e}")
+
+import smtplib
+import os
+from email.message import EmailMessage
 
 def notify_user(email, name):
-    print("NOTIFYING")
-    print("EMAIL: " + email)
-    print("NAME: " + name)
-    subject = "Your account info has recently been updated!"
-    body = f"Hello {name}, this is a confirmation message.\n*McDonald's ringing noise*"
+    gmail_user = "superhear.csc301@gmail.com"
+    gmail_pass = os.getenv("gmail_pass")
+
+    subject = "Your Account Info Was Updated"
+
+    html_body = f"""\
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                background-color: #f9f9f9;
+                color: #333;
+                line-height: 1.6;
+                text-align: center;
+            }}
+            .container {{
+                width: 90%;
+                max-width: 600px;
+                margin: auto;
+                background: #fff;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            }}
+            h1 {{
+                color: #d22;
+                font-size: 22px;
+            }}
+            p {{
+                font-size: 16px;
+            }}
+            .btn {{
+                display: inline-block;
+                background: #007bff;
+                color: #fff;
+                text-decoration: none;
+                padding: 12px 20px;
+                border-radius: 5px;
+                margin-top: 20px;
+                font-weight: bold;
+            }}
+            .btn:hover {{
+                background: #0056b3;
+            }}
+            .footer {{
+                margin-top: 20px;
+                font-size: 12px;
+                color: #666;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Hello {name},</h1>
+            <p>Your account information has been successfully updated.</p>
+            <p>If you did not make this change, please contact support immediately.</p>
+            <p class="footer">Super Heart | Keeping your heart in check ❤️</p>
+        </div>
+    </body>
+    </html>
+    """
 
     em = EmailMessage()
-    em['From'] = gmail_user
-    em['To'] = email
-    em['Subject'] = subject
-    em.set_content(body)
+    em["From"] = gmail_user
+    em["To"] = email
+    em["Subject"] = subject
 
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-        smtp.login(gmail_user, gmail_pass)
-        smtp.sendmail(gmail_user, email, em.as_string())
-        print("NOTIFIED")
+    em.add_alternative(html_body, subtype="html")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(gmail_user, gmail_pass)
+            smtp.send_message(em)
+    except Exception as e:
+        print(f"Error: Sending email failed! Details: {e}")
+
 
 
 if __name__ == '__main__':

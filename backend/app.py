@@ -734,13 +734,30 @@ def list_users():
     current_user_doctor = Doctor.query.filter_by(email=current_user_email).first()
     current_user_patient = Patient.query.filter_by(email=current_user_email).first()
     
+    if not (current_user_doctor or current_user_patient):
+        return jsonify({"error": "User not found"}), 404
+    
+    # Get current user's ID and type
+    current_user_id = current_user_doctor.u_id if current_user_doctor else current_user_patient.u_id
+    current_user_type = 'doctor' if current_user_doctor else 'patient'
+    
+    # Get existing friends
+    existing_friends = Friendship.query.filter_by(
+        user_id=current_user_id,
+        user_type=current_user_type
+    ).all()
+    
+    # Create a set of friend IDs and types for efficient lookup
+    friend_identifiers = {(friendship.friend_id, friendship.friend_type) for friendship in existing_friends}
+    
     users = []
     
     if current_user_doctor:
         # Doctors can only see patients
         patients = Patient.query.all()
         for patient in patients:
-            if patient.email != current_user_email:  # Don't include self
+            # Don't include self and don't include existing friends
+            if patient.email != current_user_email and (patient.u_id, 'patient') not in friend_identifiers:
                 users.append({
                     "u_id": patient.u_id,
                     "name": patient.name,
@@ -753,9 +770,9 @@ def list_users():
         doctors = Doctor.query.all()
         patients = Patient.query.all()
         
-        # Add doctors
+        # Add doctors who are not already friends
         for doctor in doctors:
-            if doctor.email != current_user_email:  # Don't include self
+            if doctor.email != current_user_email and (doctor.u_id, 'doctor') not in friend_identifiers:
                 users.append({
                     "u_id": doctor.u_id,
                     "name": doctor.name,
@@ -764,25 +781,16 @@ def list_users():
                     "specialty": doctor.specialty
                 })
         
-        # Add patients
+        # Add patients who are not already friends
         for patient in patients:
-            # Don't include self and check if patient ID is same as any doctor ID
-            if patient.email != current_user_email:
-                # Check if this patient's ID matches any doctor's ID we've already added
-                is_duplicate_id = any(
-                    user["u_id"] == patient.u_id and user["type"] == "doctor" 
-                    for user in users
-                )
-                
-                # Only add if it's not a duplicate ID
-                if not is_duplicate_id:
-                    users.append({
-                        "u_id": patient.u_id,
-                        "name": patient.name,
-                        "email": patient.email,
-                        "type": "patient",
-                        "heart_score": patient.heart_score
-                    })
+            if patient.email != current_user_email and (patient.u_id, 'patient') not in friend_identifiers:
+                users.append({
+                    "u_id": patient.u_id,
+                    "name": patient.name,
+                    "email": patient.email,
+                    "type": "patient",
+                    "heart_score": patient.heart_score
+                })
     
     return jsonify({"users": users})
 
@@ -1595,79 +1603,41 @@ def update_user_progress(email, name, old_score, new_score):
     msg["To"] = email
     msg["Subject"] = "Your Progress Update from Super Heart!"
 
-    # HTML Content based on score change
-    if new_score > old_score:
-        html_content = f"""
-        <html>
-        <head>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.5;
-                    color: #333;
-                }}
-                h1 {{
-                    color: #4caf50;
-                }}
-                p {{
-                    font-size: 16px;
-                }}
-                .congrats {{
-                    color: #4caf50;
-                    font-weight: bold;
-                }}
-                .encouragement {{
-                    color: #d22;
-                    font-weight: bold;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>Congratulations, {name}!</h1>
-            <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
-            <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
-            <p>We're proud of your efforts!</p>
-            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
-        </body>
-        </html>
-        """
-    elif new_score < old_score:
-        html_content = f"""
-        <html>
-        <head>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.5;
-                    color: #333;
-                }}
-                h1 {{
-                    color: #d22;
-                }}
-                p {{
-                    font-size: 16px;
-                }}
-                .congrats {{
-                    color: #4caf50;
-                    font-weight: bold;
-                }}
-                .encouragement {{
-                    color: #d22;
-                    font-weight: bold;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>Hey {name},</h1>
-            <p>Your score has dropped from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
-            <p class="encouragement">Don't worry! It's normal to have ups and downs, but remember: the most important part is to keep trying and staying active!</p>
-            <p>We believe in your potential! Keep up the effort, and you’ll be back on track in no time!!!</p>
-
-            <h6>p.s, put down the ice cream eh?</h6>
-            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
-        </body>
-        </html>
-        """
+    # Define html_content before using it
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.5;
+                color: #333;
+            }}
+            h1 {{
+                color: #4caf50;
+            }}
+            p {{
+                font-size: 16px;
+            }}
+            .congrats {{
+                color: #4caf50;
+                font-weight: bold;
+            }}
+            .encouragement {{
+                color: #d22;
+                font-weight: bold;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Congratulations, {name}!</h1>
+        <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+        <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
+        <p>We're proud of your efforts!</p>
+        <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+    </body>
+    </html>
+    """
 
     msg.set_content("Your email client does not support HTML.")
     msg.add_alternative(html_content, subtype="html")

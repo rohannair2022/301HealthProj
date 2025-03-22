@@ -1629,7 +1629,7 @@ def update_user_progress(email, name, old_score, new_score):
         </body>
         </html>
         """
-    else:
+    elif new_score < old_score:
         html_content = f"""
         <html>
         <head>

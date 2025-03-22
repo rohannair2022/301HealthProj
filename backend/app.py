@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from flask_restx import Api
 from flask_restx import Namespace
+from email.message import EmailMessage
+import smtplib
 
 # Load environment variables from .env file
 load_dotenv()
@@ -28,6 +30,9 @@ TOKEN_FILE_PATH = 'fitbit_token.json'
 USER = ''
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+gmail_user = "superhear.csc301@gmail.com"
+gmail_pass = os.getenv("gmail_pass")
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -246,6 +251,73 @@ def create_patient():
         return jsonify({"error": "Error creating patient", "details": str(e)}), 500
 
     return jsonify({"message": "Patient created successfully", "u_id": new_patient.u_id}), 201
+
+# Doctor Editing 
+@app.route('/edit_doctor/<int:u_id>', methods=['POST'])
+# Uncomment the next line if you want to protect this route with JWT authentication
+# @jwt_required()
+def edit_doctor(u_id):
+    data = request.get_json()
+
+    doctor = Doctor.query.get(u_id)
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
+
+    if 'name' in data:
+        doctor.name = data['name']
+    if 'email' in data:
+        doctor.email = data['email']
+    if 'password' in data:
+        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+        doctor.password = hashed_password
+    if 'specialty' in data:
+        doctor.specialty = data['specialty']
+
+    try:
+        db.session.commit()
+        
+        notify_user(doctor.email, doctor.name)
+
+        return jsonify({"message": "Doctor updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# Patient Editing 
+@app.route('/edit_patient/<int:u_id>', methods=['POST'])
+# Uncomment the next line if you want to protect this route with JWT authentication
+# @jwt_required()
+def edit_patient(u_id):
+    data = request.get_json()
+
+    patient = Patient.query.get(u_id)
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    if 'name' in data:
+        patient.name = data['name']
+    if 'email' in data:
+        patient.email = data['email']
+    if 'password' in data:
+        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+        patient.password = hashed_password
+    if 'avg_heartrate' in data:
+        patient.avg_heartrate = data['avg_heartrate']
+    if 'heart_score' in data:
+        patient.heart_score = data['heart_score']
+    if 'steps' in data:
+        patient.steps = data['steps']
+
+    try:
+        db.session.commit()
+
+        notify_user(patient.email, patient.name)
+
+        return jsonify({"message": "Patient updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 # Patient Deletion
@@ -828,6 +900,8 @@ def get_patient_data():
     
     # Calculate and update heart score
     new_score = calculate_heart_score(patient)
+
+    update_user_progress(patient.email, patient.name, patient.heart_score, new_score)
     
     # Only update if the score has changed
     if new_score != patient.heart_score:
@@ -842,6 +916,9 @@ def get_patient_data():
             "sleep": patient.sleep,
             "breathing_rate": patient.breathing_rate,
             "spo2": patient.spo2,
+            "email": patient.email,
+            "password": patient.password,
+            "u_id": patient.u_id
         }
     }), 200
 
@@ -862,7 +939,8 @@ def get_doctor():
             "u_id": doctor.u_id,
             "name": doctor.name,
             "email": doctor.email,
-            "specialty": doctor.specialty if hasattr(doctor, 'specialty') else None
+            "specialty": doctor.specialty if hasattr(doctor, 'specialty') else None,
+            "password": doctor.password
         }
     }), 200
 
@@ -892,6 +970,8 @@ def update_health_score():
     
     patient.heart_score = new_score
     db.session.commit()
+
+    notify_update(patient.email, patient.name, doctor.name)
 
     return jsonify({'message': f"Updated health score for {patient.name} to {new_score}"}), 200
 
@@ -1375,6 +1455,292 @@ def calculate_heart_score(patient, fitbit_data=None):
     return round(final_score)
 
 ########################################################################################################################
+# Email sending logic
+
+def welcome_user(email, name):
+    gmail_user = "superhear.csc301@gmail.com"
+    gmail_pass = os.getenv("gmail_pass")
+
+    msg = EmailMessage()
+    msg["From"] = gmail_user
+    msg["To"] = email
+    msg["Subject"] = "Welcome to Super Heart!"
+
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.5;
+                color: #333;
+            }}
+            h1 {{
+                color: #d22;
+            }}
+            a {{
+                color: #007bff;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Welcome to Super Heart, {name}!</h1>
+        <p>We're excited to have you on board. Here's what you can do next:</p>
+        <ul>
+            <li>Check your heart score insights.</li>
+            <li>Track your daily steps.</li>
+            <li>Connect with Fitbit to gain a more detailed view of your health data.</li>
+        </ul>
+        <h6>Welcome to Costco, I love you</h6>
+        <p><strong>Best,</strong><br>The Super Heart Team</p>
+    </body>
+    </html>
+    """
+
+    msg.set_content("Your email client does not support HTML.")
+    msg.add_alternative(html_content, subtype="html")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+        print("Email sent successfully!")
+    except Exception as e:
+        print(f"Error: Sending email failed! Details: {e}")
+
+def notify_user(email, name):
+    gmail_user = "superhear.csc301@gmail.com"
+    gmail_pass = os.getenv("gmail_pass")
+
+    subject = "Your Account Info Was Updated"
+
+    html_body = f"""\
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                background-color: #f9f9f9;
+                color: #333;
+                line-height: 1.6;
+                text-align: center;
+            }}
+            .container {{
+                width: 90%;
+                max-width: 600px;
+                margin: auto;
+                background: #fff;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            }}
+            h1 {{
+                color: #d22;
+                font-size: 22px;
+            }}
+            p {{
+                font-size: 16px;
+            }}
+            .btn {{
+                display: inline-block;
+                background: #007bff;
+                color: #fff;
+                text-decoration: none;
+                padding: 12px 20px;
+                border-radius: 5px;
+                margin-top: 20px;
+                font-weight: bold;
+            }}
+            .btn:hover {{
+                background: #0056b3;
+            }}
+            .footer {{
+                margin-top: 20px;
+                font-size: 12px;
+                color: #666;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Hello {name},</h1>
+            <p>Your account information has been successfully updated.</p>
+            <p>If you did not make this change, please contact support immediately.</p>
+            <p class="footer">Super Heart | Keeping your heart in check ❤️</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    em = EmailMessage()
+    em["From"] = gmail_user
+    em["To"] = email
+    em["Subject"] = subject
+
+    em.add_alternative(html_body, subtype="html")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(gmail_user, gmail_pass)
+            smtp.send_message(em)
+    except Exception as e:
+        print(f"Error: Sending email failed! Details: {e}")
+
+def update_user_progress(email, name, old_score, new_score):
+    gmail_user = "superhear.csc301@gmail.com"
+    gmail_pass = os.getenv("gmail_pass")
+
+    msg = EmailMessage()
+    msg["From"] = gmail_user
+    msg["To"] = email
+    msg["Subject"] = "Your Progress Update from Super Heart!"
+
+    # HTML Content based on score change
+    if new_score > old_score:
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                }}
+                h1 {{
+                    color: #4caf50;
+                }}
+                p {{
+                    font-size: 16px;
+                }}
+                .congrats {{
+                    color: #4caf50;
+                    font-weight: bold;
+                }}
+                .encouragement {{
+                    color: #d22;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Congratulations, {name}!</h1>
+            <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+            <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
+            <p>We're proud of your efforts!</p>
+            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+        </body>
+        </html>
+        """
+    elif new_score < old_score:
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                }}
+                h1 {{
+                    color: #d22;
+                }}
+                p {{
+                    font-size: 16px;
+                }}
+                .congrats {{
+                    color: #4caf50;
+                    font-weight: bold;
+                }}
+                .encouragement {{
+                    color: #d22;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Hey {name},</h1>
+            <p>Your score has dropped from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+            <p class="encouragement">Don't worry! It's normal to have ups and downs, but remember: the most important part is to keep trying and staying active!</p>
+            <p>We believe in your potential! Keep up the effort, and you’ll be back on track in no time!!!</p>
+
+            <h6>p.s, put down the ice cream eh?</h6>
+            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+        </body>
+        </html>
+        """
+
+    msg.set_content("Your email client does not support HTML.")
+    msg.add_alternative(html_content, subtype="html")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+        print("Progress update email sent successfully!")
+    except Exception as e:
+        print(f"Error: Sending progress update email failed! Details: {e}")
+
+def notify_update(patient_email, patient_name, doctor_name):
+    gmail_user = "superhear.csc301@gmail.com"
+    gmail_pass = os.getenv("gmail_pass")
+
+    msg = EmailMessage()
+    msg["From"] = gmail_user
+    msg["To"] = patient_email
+    msg["Subject"] = "Your Heart Score Has Just Been Updated By a Doctor"
+
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.5;
+                color: #333;
+            }}
+            h1 {{
+                color: #007bff;
+            }}
+            p {{
+                font-size: 16px;
+            }}
+            .doctor {{
+                font-weight: bold;
+                color: #d22;
+            }}
+            .cta {{
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #007bff;
+                color: white;
+                text-decoration: none;
+                display: inline-block;
+                border-radius: 5px;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Hello {patient_name},</h1>
+        <p>Your heart score has been updated by Dr. <span class="doctor">{doctor_name}</span></p>
+        <p>We recommend that you check in with Dr. {doctor_name} to stay informed about your health and what warranted this change.</p>
+
+        <h6>If you believe that this new score is unjust, an amendment can be made by a formal duel request with Dr. {doctor_name}.</h6>
+        <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+    </body>
+    </html>
+    """
+
+    msg.set_content("Your email client does not support HTML. Please check your Super Heart dashboard for updates.")
+    msg.add_alternative(html_content, subtype="html")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+        print("Doctor update notification email sent successfully!")
+    except Exception as e:
+        print(f"Error: Sending doctor update email failed! Details: {e}")
+
 
 if __name__ == '__main__':
     with app.app_context():

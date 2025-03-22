@@ -18,6 +18,10 @@ const PatientDashboard = () => {
     sleep: null,
     br: null,
     spo2: null,
+    name: '',
+    email: '',
+    password: '',
+    u_id: null
   });
   const [isHome, setHome] = useState(true);
   const [isUpload, setUpload] = useState(false);
@@ -113,6 +117,10 @@ const PatientDashboard = () => {
           sleep: response.data.patient.sleep || null,
           br: response.data.patient.br || null,
           spo2: response.data.patient.spo2 || null,
+          name: response.data.patient.name || '?',
+          email: response.data.patient.email || '?',
+          password: response.data.patient.password || '?',
+          u_id: response.data.patient.u_id || '?'
         });
       }
     } catch (error) {
@@ -252,6 +260,11 @@ const PatientDashboard = () => {
     localStorage.setItem("theme", !isDarkMode ? "dark" : "light");
   };
 
+    // Profile page navigation
+  const goToProfile = () => {
+      navigate('/patient-profile', { state: { userData, isDarkMode } });
+  };
+
   return (
     <div className="app-container">
       {/* Side Navigation */}
@@ -268,7 +281,7 @@ const PatientDashboard = () => {
             <i className="fas fa-home"></i>
             Dashboard
           </li>
-          <li
+          {/* <li
             onClick={() => {
               setUpload(false);
               setHome(false);
@@ -277,7 +290,7 @@ const PatientDashboard = () => {
           >
             <i className="fas fa-user-friends"></i>
             Friends
-          </li>
+          </li> */}
           <li
             onClick={() => {
               setUpload(false);
@@ -332,7 +345,11 @@ const PatientDashboard = () => {
               </div>
               <div className="header-right">
                 <i className="fas fa-bell"></i>
-                <i className="fas fa-user-circle"></i>
+                <i
+                className="fas fa-user-circle"
+                onClick={goToProfile}
+                style={{ cursor: 'pointer' }}
+                ></i>
               </div>
             </header>
 

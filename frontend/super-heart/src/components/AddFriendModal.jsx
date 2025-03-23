@@ -32,6 +32,15 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend }) => {
     user.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleAddFriend = (userId, userType) => {
+    try {
+      onAddFriend(userId, userType);
+      onClose();
+    } catch (error) {
+      setError('Failed to send friend request');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -84,8 +93,7 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend }) => {
                 <button
                   className='add-friend-btn'
                   onClick={() => {
-                    onAddFriend(user.u_id, user.type);
-                    onClose();
+                    handleAddFriend(user.u_id, user.type);
                   }}
                 >
                   Add Friend

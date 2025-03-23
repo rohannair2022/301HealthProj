@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback } from "react";
-import "./Dashboard.css";
-import { redirect, useNavigate } from "react-router-dom";
-import axios from "axios";
-import FileUpload from "./FileUpload";
-import AddFriendModal from "./AddFriendModal";
+import React, { useState, useEffect, useCallback } from 'react';
+import './Dashboard.css';
+import { redirect, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import FileUpload from './FileUpload';
+import AddFriendModal from './AddFriendModal';
 import StepsChart from './StepsChart';
-import HeartRateChart from "./HeartRateChart";
+import HeartRateChart from './HeartRateChart';
+import { Modal, Tabs, Tab } from 'react-bootstrap';
 // import SpO2Chart from "./SpO2Chart";
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [userData, setUserData] = useState({
     heart_score: 0,
@@ -21,24 +22,27 @@ const PatientDashboard = () => {
     name: '',
     email: '',
     password: '',
-    u_id: null
+    u_id: null,
   });
   const [isHome, setHome] = useState(true);
   const [isUpload, setUpload] = useState(false);
   const [users, setUsers] = useState([]);
   const [friends, setFriends] = useState([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isProgress, setProgress] = useState(false);
   const [weeklySteps, setWeeklySteps] = useState([]);
   const [weeklyHeartRate, setWeeklyHeartRate] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [showRequestsModal, setShowRequestsModal] = useState(false);
   // const [weeklySpO2, setWeeklySpO2] = useState([]);
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       await axios.post(
-        "http://localhost:5001/logout",
+        'http://localhost:5001/logout',
         {},
         {
           headers: {
@@ -48,21 +52,21 @@ const PatientDashboard = () => {
       );
       // Clear ALL storage
       localStorage.clear(); // This will remove token and any other stored data
-      navigate("/");
+      navigate('/');
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error('Logout error:', error);
       // Even if the backend call fails, we should still clear storage and redirect
       localStorage.clear();
-      navigate("/");
+      navigate('/');
     }
   };
 
   const handleFitbitLogin = async () => {
     try {
       // First, perform login
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       const codeCreation = await axios.get(
-        "http://localhost:5001/connect_watch",
+        'http://localhost:5001/connect_watch',
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -73,38 +77,38 @@ const PatientDashboard = () => {
       const client_id = codeCreation.data.client_id;
       const code_challenge = codeCreation.data.code_challenge;
       const scope =
-        "activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight";
+        'activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight';
 
       // Redirect to Fitbit login page
       const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${client_id}&scope=${scope}&code_challenge_method=S256&code_challenge=${code_challenge}`;
-      window.open(authUrl, "_blank");
+      window.open(authUrl, '_blank');
     } catch (error) {
       // Handle different error scenarios
       if (error.response) {
         switch (error.response.status) {
           case 400:
-            alert("Please provide both email and password.");
+            alert('Please provide both email and password.');
             break;
           case 401:
-            alert("Invalid credentials. Please try again.");
+            alert('Invalid credentials. Please try again.');
             break;
           default:
-            alert("An error occurred. Please try again.");
+            alert('An error occurred. Please try again.');
         }
       } else if (error.request) {
-        alert("No response from server. Please check your connection.");
+        alert('No response from server. Please check your connection.');
       } else {
-        alert("Error setting up the login request.");
+        alert('Error setting up the login request.');
       }
-      console.error("Login error:", error);
+      console.error('Login error:', error);
     }
   };
 
   const fetchUserData = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
 
-      const response = await axios.get("http://localhost:5001/get_patient", {
+      const response = await axios.get('http://localhost:5001/get_patient', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -120,13 +124,13 @@ const PatientDashboard = () => {
           name: response.data.patient.name || '?',
           email: response.data.patient.email || '?',
           password: response.data.patient.password || '?',
-          u_id: response.data.patient.u_id || '?'
+          u_id: response.data.patient.u_id || '?',
         });
       }
     } catch (error) {
-      console.error("Error fetching user data:", error);
+      console.error('Error fetching user data:', error);
       if (error.response && error.response.status === 401) {
-        navigate("/login");
+        navigate('/login');
       }
     }
     setTimeout(fetchUserData, 600000);
@@ -134,58 +138,82 @@ const PatientDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5001/list_users", {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/list_users', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setUsers(response.data.users);
     } catch (error) {
-      console.error("Error fetching users:", error);
-      setError("Failed to fetch users");
+      console.error('Error fetching users:', error);
+      setError('Failed to fetch users');
     }
   };
 
   const fetchFriends = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5001/list_friends", {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/list_friends', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setFriends(response.data.friends || []);
     } catch (error) {
-      console.error("Error fetching friends:", error);
-      setError("Failed to fetch friends");
+      console.error('Error fetching friends:', error);
+      setError('Failed to fetch friends');
+    }
+  }, []);
+
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        'http://localhost:5001/list_friend_requests',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setIncomingRequests(response.data.incoming_requests || []);
+      setOutgoingRequests(response.data.outgoing_requests || []);
+    } catch (error) {
+      console.error('Error fetching friend requests:', error);
     }
   }, []);
 
   const fetchWeeklySteps = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5001/get_weekly_steps", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        'http://localhost:5001/get_weekly_steps',
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setWeeklySteps(response.data.weekly_steps);
     } catch (error) {
-      console.error("Error fetching weekly steps:", error);
+      console.error('Error fetching weekly steps:', error);
     }
   }, []);
 
   const fetchHeartRateData = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5001/get_weekly_heart_rate", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        'http://localhost:5001/get_weekly_heart_rate',
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setWeeklyHeartRate(response.data.weekly_heart_rate);
     } catch (error) {
-      console.error("Error fetching heart rate data:", error);
+      console.error('Error fetching heart rate data:', error);
     }
   }, []);
-  
+
   // const fetchSpO2Data = useCallback(async () => {
   //   try {
   //     const token = localStorage.getItem("token");
@@ -198,34 +226,45 @@ const PatientDashboard = () => {
   //   }
   // }, []);
 
-
   const handleAddFriend = async (friendId, friendType) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       await axios.post(
-        "http://localhost:5001/add_friend",
+        'http://localhost:5001/send_friend_request',
         {
-          friend_id: friendId,
-          friend_type: friendType,
+          receiver_id: friendId,
+          receiver_type: friendType,
         },
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         }
       );
-      // Refresh friends list after adding
-      fetchFriends();
+      // After sending a request, also fetch the friend requests to update the outgoing list
+      fetchFriendRequests();
+      // Add success feedback
+      alert('Friend request sent successfully!');
     } catch (error) {
-      console.error("Error adding friend:", error);
-      setError(error.response?.data?.error || "Failed to add friend");
+      console.error('Error sending friend request:', error);
+      // Provide more detailed error feedback
+      if (error.response && error.response.data) {
+        setError(
+          error.response.data.error ||
+            error.response.data.message ||
+            'Failed to send friend request'
+        );
+      } else {
+        setError('Failed to send friend request. Please try again.');
+      }
     }
   };
 
   const handleRemoveFriend = async (friendId, friendType) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete("http://localhost:5001/remove_friend", {
+      const token = localStorage.getItem('token');
+      await axios.delete('http://localhost:5001/remove_friend', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -237,40 +276,87 @@ const PatientDashboard = () => {
       // Refresh friends list after removing
       fetchFriends();
     } catch (error) {
-      console.error("Error removing friend:", error);
-      setError(error.response?.data?.error || "Failed to remove friend");
+      console.error('Error removing friend:', error);
+      setError(error.response?.data?.error || 'Failed to remove friend');
+    }
+  };
+
+  const handleAcceptRequest = async (requestId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5001/accept_friend_request/${requestId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      // Refresh both requests and friends lists
+      fetchFriendRequests();
+      fetchFriends();
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      setError('Failed to accept friend request');
+    }
+  };
+
+  const handleRejectRequest = async (requestId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5001/reject_friend_request/${requestId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      fetchFriendRequests();
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+      setError('Failed to reject friend request');
     }
   };
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    setIsDarkMode(savedTheme === "dark");
-    document.body.className = savedTheme === "dark" ? "dark-mode" : "";
+    const savedTheme = localStorage.getItem('theme');
+    setIsDarkMode(savedTheme === 'dark');
+    document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
     fetchUserData();
     fetchFriends();
+    fetchFriendRequests();
     fetchWeeklySteps();
     fetchHeartRateData();
     // fetchSpO2Data();
-  }, [fetchUserData, fetchFriends, fetchWeeklySteps, fetchHeartRateData]);
+  }, [
+    fetchUserData,
+    fetchFriends,
+    fetchFriendRequests,
+    fetchWeeklySteps,
+    fetchHeartRateData,
+  ]);
 
   // Theme toggle function
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
-    document.body.className = !isDarkMode ? "dark-mode" : "";
-    localStorage.setItem("theme", !isDarkMode ? "dark" : "light");
+    document.body.className = !isDarkMode ? 'dark-mode' : '';
+    localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
   };
 
-    // Profile page navigation
+  // Profile page navigation
   const goToProfile = () => {
-      navigate('/patient-profile', { state: { userData, isDarkMode } });
+    navigate('/patient-profile', { state: { userData, isDarkMode } });
   };
 
   return (
-    <div className="app-container">
+    <div className='app-container'>
       {/* Side Navigation */}
-      <nav className="side-nav">
-        <div className="logo">SuperHeart</div>
-        <ul className="nav-links">
+      <nav className='side-nav'>
+        <div className='logo'>SuperHeart</div>
+        <ul className='nav-links'>
           <li
             onClick={() => {
               setUpload(false);
@@ -278,7 +364,7 @@ const PatientDashboard = () => {
               setProgress(false);
             }}
           >
-            <i className="fas fa-home"></i>
+            <i className='fas fa-home'></i>
             Dashboard
           </li>
           {/* <li
@@ -298,7 +384,7 @@ const PatientDashboard = () => {
               setProgress(true);
             }}
           >
-            <i className="fas fa-chart-line"></i>
+            <i className='fas fa-chart-line'></i>
             Progress
           </li>
           <li
@@ -308,7 +394,7 @@ const PatientDashboard = () => {
               setProgress(false);
             }}
           >
-            <i className="fas fa-upload"></i>
+            <i className='fas fa-upload'></i>
             Upload Data
           </li>
           <li
@@ -316,63 +402,80 @@ const PatientDashboard = () => {
               handleFitbitLogin();
             }}
           >
-            <i className="fas fa-heart"></i>
+            <i className='fas fa-heart'></i>
             Connect Fitbit
           </li>
-          <li onClick={toggleTheme} className="theme-toggle">
-            <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`}></i>
-            {isDarkMode ? "Light Mode" : "Dark Mode"}
+          <li onClick={toggleTheme} className='theme-toggle'>
+            <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+            {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </li>
-          <li onClick={handleLogout} className="logout-btn">
-            <i className="fas fa-sign-out-alt"></i>
+          <li onClick={handleLogout} className='logout-btn'>
+            <i className='fas fa-sign-out-alt'></i>
             Logout
           </li>
         </ul>
       </nav>
 
       {/* Main Content */}
-      <main className="main-content">
+      <main
+        className='main-content'
+        style={{ position: 'relative', paddingTop: '30px' }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: '40px', // Increased from 20px to 40px
+            right: '40px', // Increased from 20px to 40px
+            zIndex: 100,
+          }}
+        >
+          <div
+            onClick={goToProfile}
+            style={{
+              cursor: 'pointer',
+              width: '50px',
+              height: '50px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--highlight-color)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
+            }}
+          >
+            <i
+              className='fas fa-user-circle'
+              style={{ fontSize: '1.8rem', color: 'white' }}
+            ></i>
+          </div>
+        </div>
+
         {isUpload ? (
           <div>
             <FileUpload />
           </div>
         ) : isHome ? (
           <>
-            <header className="top-header">
-              <div className="header-search">
-                <i className="fas fa-search"></i>
-                <input type="text" placeholder="Search..." />
-              </div>
-              <div className="header-right">
-                <i className="fas fa-bell"></i>
-                <i
-                className="fas fa-user-circle"
-                onClick={goToProfile}
-                style={{ cursor: 'pointer' }}
-                ></i>
-              </div>
-            </header>
-
             {/* Dashboard Content */}
-            <div className="dashboard-content">
-              <div className="dashboard-header">
+            <div className='dashboard-content'>
+              <div className='dashboard-header'>
                 <h2>Health Overview</h2>
               </div>
 
-              <div className="dashboard-grid">
-                <div className="dashboard-card">
+              <div className='dashboard-grid'>
+                <div className='dashboard-card'>
                   <h3>Heart Health Score</h3>
-                  <div className="score">{userData?.heart_score || "N/A"}</div>
+                  <div className='score'>{userData?.heart_score || 'N/A'}</div>
                   <p>Out of 100</p>
                 </div>
 
-                <div className="dashboard-card">
+                <div className='dashboard-card'>
                   <h3>Daily Steps</h3>
-                  <div className="score">{userData?.steps || 0}</div>
-                  <div className="steps-progress">
-                    <div className="progress-bar">
+                  <div className='score'>{userData?.steps || 0}</div>
+                  <div className='steps-progress'>
+                    <div className='progress-bar'>
                       <div
-                        className="progress-fill"
+                        className='progress-fill'
                         style={{
                           width: `${((userData?.steps || 0) / 10000) * 100}%`,
                         }}
@@ -382,47 +485,55 @@ const PatientDashboard = () => {
                   </div>
                 </div>
 
-                <div className="dashboard-card">
+                <div className='dashboard-card'>
                   <h3>Sleep</h3>
-                  <div className="measurement">{userData?.sleep || "N/A"}</div>
+                  <div className='measurement'>{userData?.sleep || 'N/A'}</div>
                   <p>Minutes Asleep</p>
                 </div>
 
-                <div className="dashboard-card">
+                <div className='dashboard-card'>
                   <h3>Breathing Rate</h3>
-                  <div className="measurement">{userData?.br || "N/A"}</div>
+                  <div className='measurement'>{userData?.br || 'N/A'}</div>
                   <p>Number of breaths per minute</p>
                 </div>
 
-                <div className="dashboard-card">
+                <div className='dashboard-card'>
                   <h3>SpO2</h3>
-                  <div className="measurement">{userData?.spo2 || "N/A"}</div>
+                  <div className='measurement'>{userData?.spo2 || 'N/A'}</div>
                   <p>Pulse Oxygen Level (in %)</p>
                 </div>
               </div>
 
               {/* Friends Section */}
-              <div className="friends-section">
-                <div className="section-header">
+              <div className='friends-section'>
+                <div className='section-header'>
                   <h3>Friends</h3>
-                  <button
-                    className="add-friend-btn"
-                    onClick={() => setIsAddFriendModalOpen(true)}
-                  >
-                    <i className="fas fa-plus"></i> Add Friend
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      className='view-requests-btn'
+                      onClick={() => setShowRequestsModal(true)}
+                    >
+                      <i className='fas fa-user-friends'></i> View Requests
+                    </button>
+                    <button
+                      className='add-friend-btn'
+                      onClick={() => setIsAddFriendModalOpen(true)}
+                    >
+                      <i className='fas fa-plus'></i> Add Friend
+                    </button>
+                  </div>
                 </div>
-                <div className="search-bar">
-                  <i className="fas fa-search"></i>
+                <div className='search-bar'>
+                  <i className='fas fa-search'></i>
                   <input
-                    type="text"
-                    placeholder="Search friends..."
+                    type='text'
+                    placeholder='Search friends...'
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                {error && <div className="error-message">{error}</div>}
-                <div className="friends-list">
+                {error && <div className='error-message'>{error}</div>}
+                <div className='friends-list'>
                   {friends.length > 0 ? (
                     friends
                       .filter((friend) =>
@@ -431,28 +542,28 @@ const PatientDashboard = () => {
                           .includes(searchTerm.toLowerCase())
                       )
                       .map((friend) => (
-                        <div key={friend.u_id} className="friend-item">
-                          <div className="friend-info">
-                            <i className="fas fa-user-circle"></i>
-                            <span className="friend-name">{friend.name}</span>
+                        <div key={friend.u_id} className='friend-item'>
+                          <div className='friend-info'>
+                            <i className='fas fa-user-circle'></i>
+                            <span className='friend-name'>{friend.name}</span>
                             <span className={`friend-type ${friend.type}`}>
                               {friend.type.toUpperCase()}
                             </span>
                           </div>
-                          <div className="friend-actions">
-                            <span className="friend-score">
-                              {friend.type === "patient"
+                          <div className='friend-actions'>
+                            <span className='friend-score'>
+                              {friend.type === 'patient'
                                 ? `Score: ${friend.heart_score}`
                                 : friend.specialty}
                             </span>
                             <button
-                              className="remove-friend-btn"
+                              className='remove-friend-btn'
                               onClick={() =>
                                 handleRemoveFriend(friend.u_id, friend.type)
                               }
-                              title="Remove friend"
+                              title='Remove friend'
                             >
-                              <i className="fas fa-times"></i>
+                              <i className='fas fa-times'></i>
                             </button>
                           </div>
                         </div>
@@ -471,40 +582,57 @@ const PatientDashboard = () => {
             />
           </>
         ) : isProgress ? ( // Progress Section
-          <div className="dashboard-content">
+          <div className='dashboard-content'>
             {/* Horizontal Layout for Steps and Heart Rate Charts */}
-            <div className="horizontal-charts-container">
+            <div className='horizontal-charts-container'>
               {/* Steps Chart */}
-              <div className="horizontal-chart">
+              <div className='horizontal-chart'>
                 <StepsChart data={weeklySteps} />
               </div>
 
               {/* Heart Rate Chart */}
-              <div className="horizontal-chart">
+              <div className='horizontal-chart'>
                 <HeartRateChart data={weeklyHeartRate} />
               </div>
             </div>
 
             {/* Weekly Summary Below */}
-            <div className="stats-summary">
+            <div className='stats-summary'>
               <h3>Weekly Summary</h3>
-              <div className="stats-grid">
+              <div className='stats-grid'>
                 {/* Steps Statistics */}
-                <div className="stat-item">
+                <div className='stat-item'>
                   <span>Total Steps</span>
-                  <strong>{weeklySteps.reduce((sum, day) => sum + (day.steps || 0), 0)}</strong>
+                  <strong>
+                    {weeklySteps.reduce(
+                      (sum, day) => sum + (day.steps || 0),
+                      0
+                    )}
+                  </strong>
                 </div>
-                <div className="stat-item">
+                <div className='stat-item'>
                   <span>Avg Daily Steps</span>
-                  <strong>{Math.round(weeklySteps.reduce((sum, day) => sum + (day.steps || 0), 0) / 7)}</strong>
+                  <strong>
+                    {Math.round(
+                      weeklySteps.reduce(
+                        (sum, day) => sum + (day.steps || 0),
+                        0
+                      ) / 7
+                    )}
+                  </strong>
                 </div>
 
                 {/* Heart Rate Statistics */}
-                <div className="stat-item">
+                <div className='stat-item'>
                   <span>Avg Heart Rate</span>
                   <strong>
-                    {weeklyHeartRate.length > 0 
-                      ? Math.round(weeklyHeartRate.reduce((sum, day) => sum + (day.heart_rate || 0), 0) / 7)
+                    {weeklyHeartRate.length > 0
+                      ? Math.round(
+                          weeklyHeartRate.reduce(
+                            (sum, day) => sum + (day.heart_rate || 0),
+                            0
+                          ) / 7
+                        )
                       : 'N/A'}
                   </strong>
                 </div>
@@ -513,6 +641,82 @@ const PatientDashboard = () => {
           </div>
         ) : null}
       </main>
+
+      {/* Friend Requests Modal */}
+      <Modal
+        show={showRequestsModal}
+        onHide={() => setShowRequestsModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Friend Requests</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Tabs defaultActiveKey='incoming' id='requests-tabs'>
+            <Tab
+              eventKey='incoming'
+              title={`Incoming (${incomingRequests.length})`}
+            >
+              {incomingRequests.length > 0 ? (
+                incomingRequests.map((request) => (
+                  <div key={request.request_id} className='request-item'>
+                    <div className='request-info'>
+                      <i className='fas fa-user-circle'></i>
+                      <div>
+                        <div className='request-name'>{request.name}</div>
+                        <div className='request-type'>
+                          {request.type.toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className='request-actions'>
+                      <button
+                        className='accept-btn'
+                        onClick={() => handleAcceptRequest(request.request_id)}
+                      >
+                        <i className='fas fa-check'></i>
+                      </button>
+                      <button
+                        className='reject-btn'
+                        onClick={() => handleRejectRequest(request.request_id)}
+                      >
+                        <i className='fas fa-times'></i>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p>No incoming requests</p>
+              )}
+            </Tab>
+            <Tab
+              eventKey='outgoing'
+              title={`Outgoing (${outgoingRequests.length})`}
+            >
+              {outgoingRequests.length > 0 ? (
+                outgoingRequests.map((request) => (
+                  <div key={request.request_id} className='request-item'>
+                    <div className='request-info'>
+                      <i className='fas fa-user-circle'></i>
+                      <div>
+                        <div className='request-name'>{request.name}</div>
+                        <div className='request-type'>
+                          {request.type.toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className='request-status'>
+                      <span className='pending-status'>Pending</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p>No outgoing requests</p>
+              )}
+            </Tab>
+          </Tabs>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 };

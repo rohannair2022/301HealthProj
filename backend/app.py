@@ -90,6 +90,31 @@ class Friendship(db.Model):
                                   primaryjoin="and_(Friendship.friend_id==Doctor.u_id, "
                                             "Friendship.friend_type=='doctor')")
 
+class FriendRequest(db.Model):
+    __tablename__ = 'friend_request'
+
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, nullable=False)
+    receiver_id = db.Column(db.Integer, nullable=False)
+    sender_type = db.Column(db.String(10), nullable=False)  # 'patient' or 'doctor'
+    receiver_type = db.Column(db.String(10), nullable=False)  # 'patient' or 'doctor'
+    status = db.Column(db.String(10), default='pending')  # 'pending', 'accepted', 'rejected'
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    # Define relationships
+    sender_patient = db.relationship('Patient', foreign_keys=[sender_id],
+                                primaryjoin="and_(FriendRequest.sender_id==Patient.u_id, "
+                                          "FriendRequest.sender_type=='patient')")
+    sender_doctor = db.relationship('Doctor', foreign_keys=[sender_id],
+                                primaryjoin="and_(FriendRequest.sender_id==Doctor.u_id, "
+                                          "FriendRequest.sender_type=='doctor')")
+    receiver_patient = db.relationship('Patient', foreign_keys=[receiver_id],
+                                   primaryjoin="and_(FriendRequest.receiver_id==Patient.u_id, "
+                                             "FriendRequest.receiver_type=='patient')")
+    receiver_doctor = db.relationship('Doctor', foreign_keys=[receiver_id],
+                                  primaryjoin="and_(FriendRequest.receiver_id==Doctor.u_id, "
+                                            "FriendRequest.receiver_type=='doctor')")
+
 # UPDATED ROUTES
 @app.route('/register/<type>', methods=['POST'])
 def register(type):
@@ -534,79 +559,73 @@ def get_weekly_heart_rate():
 @jwt_required()
 def add_friend():
     try:
+        current_user = get_jwt_identity()
+        user_type = get_user_type_from_email(current_user)
+        
+        # Get data from request body
         data = request.get_json()
-        current_user_email = get_jwt_identity()
+        print(f"Received add_friend request with data: {data}")  # Add this debug line
         
-        if not data.get('friend_id') or not data.get('friend_type'):
-            return jsonify({"error": "Friend ID and type are required"}), 400
-            
         friend_id = data.get('friend_id')
-        friend_type = data.get('friend_type')  # 'patient' or 'doctor'
+        friend_type = data.get('friend_type')
         
-        # Get current user
-        current_user = Patient.query.filter_by(email=current_user_email).first()
-        current_user_type = 'patient'
+        if not friend_id or not friend_type:
+            print(f"Missing data: friend_id={friend_id}, friend_type={friend_type}")
+            return jsonify({'error': 'Missing friend_id or friend_type'}), 400
         
-        if not current_user:
-            current_user = Doctor.query.filter_by(email=current_user_email).first()
-            current_user_type = 'doctor'
-            
-        if not current_user:
-            return jsonify({"error": "Current user not found"}), 404
-            
-        # Enforce doctor-patient relationship rules
-        if current_user_type == 'doctor' and friend_type != 'patient':
-            return jsonify({"error": "Doctors can only add patients as friends"}), 400
-            
-        # Get friend
-        if friend_type == 'patient':
-            friend = Patient.query.get(friend_id)
+        # Get current user ID
+        if user_type == 'patient':
+            user = Patient.query.filter_by(email=current_user).first()
         else:
-            friend = Doctor.query.get(friend_id)
-            
-        if not friend:
-            return jsonify({"error": "Friend not found"}), 404
-            
-        if current_user.u_id == friend_id and current_user_type == friend_type:
-            return jsonify({"error": "Cannot add yourself as friend"}), 400
-            
-        # Check if friendship already exists
-        existing = Friendship.query.filter_by(
-            user_id=current_user.u_id,
-            friend_id=friend_id,
-            user_type=current_user_type,
-            friend_type=friend_type
+            user = Doctor.query.filter_by(email=current_user).first()
+        
+        if not user:
+            print(f"User not found: {current_user}")
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if a request already exists
+        existing_request = FriendRequest.query.filter(
+            ((FriendRequest.sender_id == user.u_id) & (FriendRequest.sender_type == user_type) &
+             (FriendRequest.receiver_id == friend_id) & (FriendRequest.receiver_type == friend_type)) |
+            ((FriendRequest.sender_id == friend_id) & (FriendRequest.sender_type == friend_type) &
+             (FriendRequest.receiver_id == user.u_id) & (FriendRequest.receiver_type == user_type))
         ).first()
         
-        if existing:
-            return jsonify({"error": "Already friends"}), 400
-            
-        # Create friendship (both ways)
-        friendship1 = Friendship(
-            user_id=current_user.u_id,
-            friend_id=friend_id,
-            user_type=current_user_type,
-            friend_type=friend_type
+        if existing_request:
+            print(f"Friend request already exists: {existing_request.id}")
+            return jsonify({'error': 'Friend request already exists', 'status': 'existing_request'}), 400
+        
+        # Check if already friends
+        existing_friendship = Friendship.query.filter(
+            ((Friendship.user_id == user.u_id) & (Friendship.user_type == user_type) &
+             (Friendship.friend_id == friend_id) & (Friendship.friend_type == friend_type)) |
+            ((Friendship.user_id == friend_id) & (Friendship.user_type == friend_type) &
+             (Friendship.friend_id == user.u_id) & (Friendship.friend_type == user_type))
+        ).first()
+        
+        if existing_friendship:
+            print(f"Already friends: {existing_friendship.id}")
+            return jsonify({'error': 'You are already friends', 'status': 'already_friends'}), 400
+        
+        # Create and save the friend request
+        friend_request = FriendRequest(
+            sender_id=user.u_id,
+            sender_type=user_type,
+            receiver_id=friend_id,
+            receiver_type=friend_type,
+            status='pending'
         )
         
-        # Create reciprocal friendship
-        friendship2 = Friendship(
-            user_id=friend_id,
-            friend_id=current_user.u_id,
-            user_type=friend_type,
-            friend_type=current_user_type
-        )
-        
-        db.session.add(friendship1)
-        db.session.add(friendship2)
+        db.session.add(friend_request)
         db.session.commit()
+        print(f"Friend request created successfully: {friend_request.id}")
         
-        return jsonify({"message": "Friend added successfully"}), 201
-
+        return jsonify({'message': 'Friend request sent successfully'}), 200
+        
     except Exception as e:
-        print("Error occurred:", str(e))
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        print(f"Error in add_friend: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # Friend List
 @app.route('/list_friends', methods=['GET'])
@@ -734,13 +753,30 @@ def list_users():
     current_user_doctor = Doctor.query.filter_by(email=current_user_email).first()
     current_user_patient = Patient.query.filter_by(email=current_user_email).first()
     
+    if not (current_user_doctor or current_user_patient):
+        return jsonify({"error": "User not found"}), 404
+    
+    # Get current user's ID and type
+    current_user_id = current_user_doctor.u_id if current_user_doctor else current_user_patient.u_id
+    current_user_type = 'doctor' if current_user_doctor else 'patient'
+    
+    # Get existing friends
+    existing_friends = Friendship.query.filter_by(
+        user_id=current_user_id,
+        user_type=current_user_type
+    ).all()
+    
+    # Create a set of friend IDs and types for efficient lookup
+    friend_identifiers = {(friendship.friend_id, friendship.friend_type) for friendship in existing_friends}
+    
     users = []
     
     if current_user_doctor:
         # Doctors can only see patients
         patients = Patient.query.all()
         for patient in patients:
-            if patient.email != current_user_email:  # Don't include self
+            # Don't include self and don't include existing friends
+            if patient.email != current_user_email and (patient.u_id, 'patient') not in friend_identifiers:
                 users.append({
                     "u_id": patient.u_id,
                     "name": patient.name,
@@ -753,9 +789,9 @@ def list_users():
         doctors = Doctor.query.all()
         patients = Patient.query.all()
         
-        # Add doctors
+        # Add doctors who are not already friends
         for doctor in doctors:
-            if doctor.email != current_user_email:  # Don't include self
+            if doctor.email != current_user_email and (doctor.u_id, 'doctor') not in friend_identifiers:
                 users.append({
                     "u_id": doctor.u_id,
                     "name": doctor.name,
@@ -764,25 +800,16 @@ def list_users():
                     "specialty": doctor.specialty
                 })
         
-        # Add patients
+        # Add patients who are not already friends
         for patient in patients:
-            # Don't include self and check if patient ID is same as any doctor ID
-            if patient.email != current_user_email:
-                # Check if this patient's ID matches any doctor's ID we've already added
-                is_duplicate_id = any(
-                    user["u_id"] == patient.u_id and user["type"] == "doctor" 
-                    for user in users
-                )
-                
-                # Only add if it's not a duplicate ID
-                if not is_duplicate_id:
-                    users.append({
-                        "u_id": patient.u_id,
-                        "name": patient.name,
-                        "email": patient.email,
-                        "type": "patient",
-                        "heart_score": patient.heart_score
-                    })
+            if patient.email != current_user_email and (patient.u_id, 'patient') not in friend_identifiers:
+                users.append({
+                    "u_id": patient.u_id,
+                    "name": patient.name,
+                    "email": patient.email,
+                    "type": "patient",
+                    "heart_score": patient.heart_score
+                })
     
     return jsonify({"users": users})
 
@@ -808,7 +835,19 @@ def get_user_type():
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
     
-
+def get_user_type_from_email(email):
+    """Determine if an email belongs to a patient or doctor"""
+    # Check if user is a patient
+    patient = Patient.query.filter_by(email=email).first()
+    if patient:
+        return "patient"
+        
+    # Check if user is a doctor
+    doctor = Doctor.query.filter_by(email=email).first()
+    if doctor:
+        return "doctor"
+        
+    return None
 ############################################################################################################################
 
 # Heart Score Calculation
@@ -1595,79 +1634,41 @@ def update_user_progress(email, name, old_score, new_score):
     msg["To"] = email
     msg["Subject"] = "Your Progress Update from Super Heart!"
 
-    # HTML Content based on score change
-    if new_score > old_score:
-        html_content = f"""
-        <html>
-        <head>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.5;
-                    color: #333;
-                }}
-                h1 {{
-                    color: #4caf50;
-                }}
-                p {{
-                    font-size: 16px;
-                }}
-                .congrats {{
-                    color: #4caf50;
-                    font-weight: bold;
-                }}
-                .encouragement {{
-                    color: #d22;
-                    font-weight: bold;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>Congratulations, {name}!</h1>
-            <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
-            <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
-            <p>We're proud of your efforts!</p>
-            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
-        </body>
-        </html>
-        """
-    elif new_score < old_score:
-        html_content = f"""
-        <html>
-        <head>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.5;
-                    color: #333;
-                }}
-                h1 {{
-                    color: #d22;
-                }}
-                p {{
-                    font-size: 16px;
-                }}
-                .congrats {{
-                    color: #4caf50;
-                    font-weight: bold;
-                }}
-                .encouragement {{
-                    color: #d22;
-                    font-weight: bold;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>Hey {name},</h1>
-            <p>Your score has dropped from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
-            <p class="encouragement">Don't worry! It's normal to have ups and downs, but remember: the most important part is to keep trying and staying active!</p>
-            <p>We believe in your potential! Keep up the effort, and you’ll be back on track in no time!!!</p>
-
-            <h6>p.s, put down the ice cream eh?</h6>
-            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
-        </body>
-        </html>
-        """
+    # Define html_content before using it
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.5;
+                color: #333;
+            }}
+            h1 {{
+                color: #4caf50;
+            }}
+            p {{
+                font-size: 16px;
+            }}
+            .congrats {{
+                color: #4caf50;
+                font-weight: bold;
+            }}
+            .encouragement {{
+                color: #d22;
+                font-weight: bold;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Congratulations, {name}!</h1>
+        <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+        <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
+        <p>We're proud of your efforts!</p>
+        <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+    </body>
+    </html>
+    """
 
     msg.set_content("Your email client does not support HTML.")
     msg.add_alternative(html_content, subtype="html")
@@ -1741,6 +1742,237 @@ def notify_update(patient_email, patient_name, doctor_name):
     except Exception as e:
         print(f"Error: Sending doctor update email failed! Details: {e}")
 
+############################################################################################################################
+# Friend request logic
+@app.route('/send_friend_request', methods=['POST'])
+@jwt_required()
+def send_friend_request():
+    try:
+        # Get the current user's ID and type
+        current_user = get_jwt_identity()
+        data = request.get_json()
+        
+        user_type = get_user_type_from_email(current_user)
+        if user_type == 'patient':
+            user = Patient.query.filter_by(email=current_user).first()
+        else:
+            user = Doctor.query.filter_by(email=current_user).first()
+        
+        receiver_id = data.get('receiver_id')
+        receiver_type = data.get('receiver_type')
+        
+        # Check if a request already exists
+        existing_request = FriendRequest.query.filter(
+            ((FriendRequest.sender_id == user.u_id) & (FriendRequest.sender_type == user_type) &
+             (FriendRequest.receiver_id == receiver_id) & (FriendRequest.receiver_type == receiver_type)) |
+            ((FriendRequest.sender_id == receiver_id) & (FriendRequest.sender_type == receiver_type) &
+             (FriendRequest.receiver_id == user.u_id) & (FriendRequest.receiver_type == user_type))
+        ).first()
+        
+        if existing_request:
+            return jsonify({'message': 'Friend request already exists'}), 400
+        
+        # Check if already friends
+        existing_friendship = Friendship.query.filter(
+            ((Friendship.user_id == user.u_id) & (Friendship.user_type == user_type) &
+             (Friendship.friend_id == receiver_id) & (Friendship.friend_type == receiver_type)) |
+            ((Friendship.user_id == receiver_id) & (Friendship.user_type == receiver_type) &
+             (Friendship.friend_id == user.u_id) & (Friendship.friend_type == user_type))
+        ).first()
+        
+        if existing_friendship:
+            return jsonify({'message': 'You are already friends'}), 400
+        
+        # Create and save the friend request
+        friend_request = FriendRequest(
+            sender_id=user.u_id,
+            sender_type=user_type,
+            receiver_id=receiver_id,
+            receiver_type=receiver_type,
+            status='pending'
+        )
+        
+        db.session.add(friend_request)
+        db.session.commit()
+        
+        return jsonify({'message': 'Friend request sent successfully'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# List friend requests
+@app.route('/list_friend_requests', methods=['GET'])
+@jwt_required()
+def list_friend_requests():
+    try:
+        # Get the current user's ID and type
+        current_user = get_jwt_identity()
+        user_type = get_user_type_from_email(current_user)
+        
+        if user_type == 'patient':
+            user = Patient.query.filter_by(email=current_user).first()
+        else:
+            user = Doctor.query.filter_by(email=current_user).first()
+        
+        # Get incoming friend requests
+        incoming_requests = FriendRequest.query.filter_by(
+            receiver_id=user.u_id, 
+            receiver_type=user_type,
+            status='pending'
+        ).all()
+        
+        # Get outgoing friend requests
+        outgoing_requests = FriendRequest.query.filter_by(
+            sender_id=user.u_id,
+            sender_type=user_type,
+            status='pending'
+        ).all()
+        
+        incoming_list = []
+        for request in incoming_requests:
+            if request.sender_type == 'patient':
+                sender = Patient.query.filter_by(u_id=request.sender_id).first()
+                heart_score = sender.heart_score
+                specialty = None
+            else:
+                sender = Doctor.query.filter_by(u_id=request.sender_id).first()
+                heart_score = None
+                specialty = sender.specialty
+                
+            incoming_list.append({
+                'request_id': request.id,
+                'u_id': sender.u_id,
+                'name': sender.name,
+                'email': sender.email,
+                'type': request.sender_type,
+                'heart_score': heart_score,
+                'specialty': specialty
+            })
+        
+        outgoing_list = []
+        for request in outgoing_requests:
+            if request.receiver_type == 'patient':
+                receiver = Patient.query.filter_by(u_id=request.receiver_id).first()
+                heart_score = receiver.heart_score
+                specialty = None
+            else:
+                receiver = Doctor.query.filter_by(u_id=request.receiver_id).first()
+                heart_score = None
+                specialty = receiver.specialty
+                
+            outgoing_list.append({
+                'request_id': request.id,
+                'u_id': receiver.u_id,
+                'name': receiver.name,
+                'email': receiver.email,
+                'type': request.receiver_type,
+                'heart_score': heart_score,
+                'specialty': specialty
+            })
+        
+        return jsonify({
+            'incoming_requests': incoming_list,
+            'outgoing_requests': outgoing_list
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+# Accept a friend request
+@app.route('/accept_friend_request/<int:request_id>', methods=['POST'])
+@jwt_required()
+def accept_friend_request(request_id):
+    try:
+        current_user = get_jwt_identity()
+        
+        # Find the request
+        friend_request = FriendRequest.query.get(request_id)
+        
+        if not friend_request:
+            return jsonify({"error": "Friend request not found"}), 404
+        
+        # Verify the receiver is the current user
+        receiver_id = friend_request.receiver_id
+        receiver_type = friend_request.receiver_type
+        
+        if receiver_type == 'patient':
+            receiver = Patient.query.filter_by(u_id=receiver_id).first()
+        else:
+            receiver = Doctor.query.filter_by(u_id=receiver_id).first()
+        
+        if not receiver or receiver.email != current_user:
+            return jsonify({"error": "Unauthorized to accept this request"}), 403
+        
+        # Get sender information
+        sender_id = friend_request.sender_id
+        sender_type = friend_request.sender_type
+        
+        # Create friendship in both directions
+        # First direction: receiver -> sender
+        friendship1 = Friendship(
+            user_id=receiver_id,
+            friend_id=sender_id,
+            user_type=receiver_type,
+            friend_type=sender_type
+        )
+        
+        # Second direction: sender -> receiver
+        friendship2 = Friendship(
+            user_id=sender_id,
+            friend_id=receiver_id,
+            user_type=sender_type,
+            friend_type=receiver_type
+        )
+        
+        # Update request status
+        friend_request.status = 'accepted'
+        
+        # Commit all changes
+        db.session.add(friendship1)
+        db.session.add(friendship2)
+        db.session.commit()
+        
+        return jsonify({"message": "Friend request accepted successfully"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# Reject a friend request
+@app.route('/reject_friend_request/<int:request_id>', methods=['POST'])
+@jwt_required()
+def reject_friend_request(request_id):
+    try:
+        # Get the current user's ID and type
+        current_user = get_jwt_identity()
+        user_type = get_user_type_from_email(current_user)
+        
+        if user_type == 'patient':
+            user = Patient.query.filter_by(email=current_user).first()
+        else:
+            user = Doctor.query.filter_by(email=current_user).first()
+        
+        # Find the friend request
+        friend_request = FriendRequest.query.filter_by(
+            id=request_id,
+            receiver_id=user.u_id,
+            receiver_type=user_type,
+            status='pending'
+        ).first()
+        
+        if not friend_request:
+            return jsonify({'error': 'Friend request not found'}), 404
+        
+        # Update the request status
+        friend_request.status = 'rejected'
+        db.session.commit()
+        
+        return jsonify({'message': 'Friend request rejected'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():

@@ -1,81 +1,145 @@
-import React, { useState, useEffect } from "react";
-import "./Dashboard.css";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import AddFriendModal from "./AddFriendModal";
-import { Modal, Button, Form } from "react-bootstrap";
+import React, { useState, useEffect, useCallback } from 'react';
+import './Dashboard.css';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import AddFriendModal from './AddFriendModal';
+import { Modal, Button, Form, Tabs, Tab } from 'react-bootstrap';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [doctorData, setDoctorData] = useState({
-    name: "",
-    specialty: "",
-    email: "",
-    password: "",
+    name: '',
+    specialty: '',
+    email: '',
+    password: '',
     u_id: null,
   });
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [friends, setFriends] = useState([]);
   const [patientFiles, setPatientFiles] = useState({}); // Map patient id -> files array
-  const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  // New state variables for friend requests
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [showRequestsModal, setShowRequestsModal] = useState(false);
 
   // States for updating health score
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [newHealthScore, setNewHealthScore] = useState("");
+  const [newHealthScore, setNewHealthScore] = useState('');
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       await axios.post(
-        "http://localhost:5001/logout",
+        'http://localhost:5001/logout',
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      localStorage.removeItem("token");
-      navigate("/");
+      localStorage.removeItem('token');
+      navigate('/');
     } catch (error) {
-      console.error("Logout error:", error);
-      localStorage.removeItem("token");
-      navigate("/");
+      console.error('Logout error:', error);
+      localStorage.removeItem('token');
+      navigate('/');
     }
   };
 
   const fetchDoctorData = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5001/get_doctor", {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/get_doctor', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.data) setDoctorData(response.data.doctor);
     } catch (error) {
-      console.error("Error fetching doctor data:", error);
-      if (error.response?.status === 401) navigate("/login");
+      console.error('Error fetching doctor data:', error);
+      if (error.response?.status === 401) navigate('/login');
     }
   };
 
   // Fetch friends (patients) and then their files
-  const fetchFriends = async () => {
+  const fetchFriends = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5001/list_friends", {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/list_friends', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const friendsData = response.data.friends || [];
       setFriends(friendsData);
       updatePatientFiles(friendsData);
     } catch (error) {
-      console.error("Error fetching friends:", error);
-      setError("Failed to fetch friends");
+      console.error('Error fetching friends:', error);
+      setError('Failed to fetch friends');
+    }
+  }, []);
+
+  // New function to fetch friend requests
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        'http://localhost:5001/list_friend_requests',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setIncomingRequests(response.data.incoming_requests || []);
+      setOutgoingRequests(response.data.outgoing_requests || []);
+    } catch (error) {
+      console.error('Error fetching friend requests:', error);
+    }
+  }, []);
+
+  // New functions for handling friend requests
+  const handleAcceptRequest = async (requestId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5001/accept_friend_request/${requestId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      // Refresh both requests and friends lists
+      fetchFriendRequests();
+      fetchFriends();
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      setError('Failed to accept friend request');
+    }
+  };
+
+  const handleRejectRequest = async (requestId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5001/reject_friend_request/${requestId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      fetchFriendRequests();
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+      setError('Failed to reject friend request');
     }
   };
 
   // Fetch files for a single patient
   const fetchPatientFiles = async (patientId) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       // Assumes a new endpoint for doctor to view patient's files exists:
       const response = await axios.get(
         `http://localhost:5001/doctor/files/${patientId}`,
@@ -83,7 +147,7 @@ const DoctorDashboard = () => {
       );
       return response.data.files || [];
     } catch (error) {
-      console.error("Error fetching files for patient", patientId, error);
+      console.error('Error fetching files for patient', patientId, error);
       return [];
     }
   };
@@ -93,7 +157,7 @@ const DoctorDashboard = () => {
     const newPatientFiles = {};
     await Promise.all(
       friendsList.map(async (friend) => {
-        if (friend.type === "patient") {
+        if (friend.type === 'patient') {
           const files = await fetchPatientFiles(friend.u_id);
           newPatientFiles[friend.u_id] = files;
         }
@@ -104,65 +168,100 @@ const DoctorDashboard = () => {
 
   const handleFitbitLogin = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       const codeCreation = await axios.get(
-        "http://localhost:5001/connect_watch",
+        'http://localhost:5001/connect_watch',
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
       const { client_id, code_challenge } = codeCreation.data;
       const scope =
-        "activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight";
+        'activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight';
       const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${client_id}&scope=${scope}&code_challenge_method=S256&code_challenge=${code_challenge}`;
-      window.open(authUrl, "_blank");
+      window.open(authUrl, '_blank');
     } catch (error) {
       if (error.response) {
         switch (error.response.status) {
           case 400:
-            alert("Please provide both email and password.");
+            alert('Please provide both email and password.');
             break;
           case 401:
-            alert("Invalid credentials. Please try again.");
+            alert('Invalid credentials. Please try again.');
             break;
           default:
-            alert("An error occurred. Please try again.");
+            alert('An error occurred. Please try again.');
         }
       } else if (error.request) {
-        alert("No response from server. Please check your connection.");
+        alert('No response from server. Please check your connection.');
       } else {
-        alert("Error setting up the login request.");
+        alert('Error setting up the login request.');
       }
-      console.error("Login error:", error);
+      console.error('Login error:', error);
     }
   };
 
+  // Updated function to use send_friend_request endpoint
   const handleAddFriend = async (friendId, friendType) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       await axios.post(
-        "http://localhost:5001/add_friend",
-        { friend_id: friendId, friend_type: friendType },
-        { headers: { Authorization: `Bearer ${token}` } }
+        'http://localhost:5001/send_friend_request',
+        {
+          receiver_id: friendId,
+          receiver_type: friendType,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
       );
-      fetchFriends();
+      // Add success message
+      alert('Friend request sent successfully!');
+      // Refresh friend requests to see the new outgoing request
+      fetchFriendRequests();
     } catch (error) {
-      console.error("Error adding friend:", error);
-      setError(error.response?.data?.error || "Failed to add friend");
+      console.error('Error sending friend request:', error);
+      if (error.response && error.response.data) {
+        setError(
+          error.response.data.error ||
+            error.response.data.message ||
+            'Failed to send friend request'
+        );
+      } else {
+        setError('Failed to send friend request. Please try again.');
+      }
     }
   };
 
   const handleRemoveFriend = async (friendId, friendType) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete("http://localhost:5001/remove_friend", {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { friend_id: friendId, friend_type: "patient" },
+      const token = localStorage.getItem('token');
+      await axios.delete('http://localhost:5001/remove_friend', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        data: {
+          friend_id: friendId,
+          friend_type: friendType,
+        },
       });
+      // Add success message
+      alert('Friend removed successfully!');
+      // Clear any errors
+      setError('');
+      // Refresh friends list
       fetchFriends();
     } catch (error) {
-      console.error("Error removing friend:", error);
-      setError(error.response?.data?.error || "Failed to remove friend");
+      console.error('Error removing friend:', error);
+      if (error.response && error.response.data) {
+        setError(error.response.data.error || 'Failed to remove friend');
+      } else {
+        setError('Failed to remove friend. Please try again.');
+      }
     }
   };
 
@@ -180,147 +279,168 @@ const DoctorDashboard = () => {
 
   const handleUpdateHealthScore = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       await axios.put(
-        "http://localhost:5001/doctor/update_health_score",
+        'http://localhost:5001/doctor/update_health_score',
         { health_score: newHealthScore, patient_id: selectedPatient.u_id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      alert("Health score updated successfully!");
+      alert('Health score updated successfully!');
       setShowUpdateModal(false);
       fetchFriends();
     } catch (error) {
-      console.error("Error updating health score:", error);
-      alert("Failed to update health score");
+      console.error('Error updating health score:', error);
+      alert('Failed to update health score');
     }
   };
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    setIsDarkMode(savedTheme === "dark");
-    document.body.className = savedTheme === "dark" ? "dark-mode" : "";
+    const savedTheme = localStorage.getItem('theme');
+    setIsDarkMode(savedTheme === 'dark');
+    document.body.className = savedTheme === 'dark' ? 'dark-mode' : '';
     fetchDoctorData();
     fetchFriends();
-  }, []);
+    fetchFriendRequests();
+  }, [fetchFriends, fetchFriendRequests]);
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
-    document.body.className = !isDarkMode ? "dark-mode" : "";
-    localStorage.setItem("theme", !isDarkMode ? "dark" : "light");
+    document.body.className = !isDarkMode ? 'dark-mode' : '';
+    localStorage.setItem('theme', !isDarkMode ? 'dark' : 'light');
   };
 
   const goToProfile = () => {
-    navigate("/doctor-profile", { state: { doctorData } });
+    navigate('/doctor-profile', { state: { doctorData } });
   };
 
   return (
-    <div className="app-container">
-      <nav className="side-nav">
-        <div className="logo">SuperHeart</div>
-        <ul className="nav-links">
+    <div className='app-container'>
+      <nav className='side-nav'>
+        <div className='logo'>SuperHeart</div>
+        <ul className='nav-links'>
           <li>
-            <i className="fas fa-home"></i> Dashboard
+            <i className='fas fa-home'></i> Dashboard
           </li>
           <li>
-            <i className="fas fa-user-friends"></i> My Patients
+            <i className='fas fa-user-friends'></i> My Patients
           </li>
-          <li onClick={toggleTheme} className="theme-toggle">
-            <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`}></i>
-            {isDarkMode ? "Light Mode" : "Dark Mode"}
+          <li onClick={toggleTheme} className='theme-toggle'>
+            <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+            {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </li>
           <li onClick={handleFitbitLogin}>
-            <i className="fas fa-heart"></i> Connect Fitbit
+            <i className='fas fa-heart'></i> Connect Fitbit
           </li>
-          <li onClick={handleLogout} className="logout-btn">
-            <i className="fas fa-sign-out-alt"></i> Logout
+          <li onClick={handleLogout} className='logout-btn'>
+            <i className='fas fa-sign-out-alt'></i> Logout
           </li>
         </ul>
       </nav>
 
-      <main className="main-content">
-        <header className="top-header">
-          <div className="header-right">
-            <i className="fas fa-bell"></i>
+      <main
+        className='main-content'
+        style={{ position: 'relative', paddingTop: '30px' }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: '40px', // Increased from 20px to 40px
+            right: '40px', // Increased from 20px to 40px
+            zIndex: 100,
+          }}
+        >
+          <div
+            onClick={goToProfile}
+            style={{
+              cursor: 'pointer',
+              width: '50px',
+              height: '50px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--highlight-color)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
+            }}
+          >
             <i
-              className="fas fa-user-circle"
-              onClick={goToProfile}
-              style={{ cursor: "pointer" }}
+              className='fas fa-user-circle'
+              style={{ fontSize: '1.8rem', color: 'white' }}
             ></i>
           </div>
-        </header>
+        </div>
 
-        <div className="dashboard-content">
-          <div className="dashboard-header">
+        <div className='dashboard-content'>
+          <div className='dashboard-header'>
             <h2>Welcome, Dr. {doctorData.name}</h2>
             <p>Specialty: {doctorData.specialty}</p>
           </div>
 
-          <div className="friends-section">
-            <div className="section-header">
+          <div className='friends-section'>
+            <div className='section-header'>
               <h3>My Patients</h3>
-              <button
-                className="add-friend-btn"
-                onClick={() => setIsAddFriendModalOpen(true)}
-              >
-                <i className="fas fa-plus"></i> Add Patient
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className='view-requests-btn'
+                  onClick={() => setShowRequestsModal(true)}
+                >
+                  <i className='fas fa-user-friends'></i> View Requests
+                </button>
+                <button
+                  className='add-friend-btn'
+                  onClick={() => setIsAddFriendModalOpen(true)}
+                >
+                  <i className='fas fa-plus'></i> Add Patient
+                </button>
+              </div>
             </div>
-            <div className="search-bar">
-              <i className="fas fa-search"></i>
-              <input
-                type="text"
-                placeholder="Search patients..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            {error && <div className="error-message">{error}</div>}
-            <div className="friends-list">
+            {error && <div className='error-message'>{error}</div>}
+            <div className='friends-list'>
               {friends.length > 0 ? (
                 friends
                   .filter((friend) =>
                     friend.name.toLowerCase().includes(searchTerm.toLowerCase())
                   )
                   .map((friend) => (
-                    <div key={friend.u_id} className="friend-item">
-                      <div className="friend-info">
-                        <i className="fas fa-user-circle"></i>
-                        <span className="friend-name">{friend.name}</span>
-                        <span className="friend-type patient">PATIENT</span>
+                    <div key={friend.u_id} className='friend-item'>
+                      <div className='friend-info'>
+                        <i className='fas fa-user-circle'></i>
+                        <span className='friend-name'>{friend.name}</span>
+                        <span className='friend-type patient'>PATIENT</span>
                       </div>
-                      <div className="friend-actions">
-                        <span className="friend-score">
+                      <div className='friend-actions'>
+                        <span className='friend-score'>
                           Score: {friend.heart_score}
                         </span>
                         <button
-                          className="update-score-btn"
+                          className='update-score-btn'
                           onClick={() => handleOpenUpdateModal(friend)}
-                          title="Update Health Score"
+                          title='Update Health Score'
                         >
-                          <i className="fas fa-edit"></i>
+                          <i className='fas fa-edit'></i>
                         </button>
                         <button
-                          className="remove-friend-btn"
+                          className='remove-friend-btn'
                           onClick={() =>
-                            handleRemoveFriend(friend.u_id, "patient")
+                            handleRemoveFriend(friend.u_id, 'patient')
                           }
-                          title="Remove patient"
+                          title='Remove patient'
                         >
-                          <i className="fas fa-times"></i>
+                          <i className='fas fa-times'></i>
                         </button>
                       </div>
                       {/* Display patient's uploaded files */}
                       {patientFiles[friend.u_id] &&
                         patientFiles[friend.u_id].length > 0 && (
-                          <div className="patient-files">
+                          <div className='patient-files'>
                             <strong>Files:</strong>
                             <ul>
                               {patientFiles[friend.u_id].map((file, idx) => (
                                 <li key={idx}>
                                   <a
                                     href={`http://localhost:5001/doctor/files/${friend.u_id}/${file}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    target='_blank'
+                                    rel='noopener noreferrer'
                                   >
                                     {file}
                                   </a>
@@ -353,20 +473,100 @@ const DoctorDashboard = () => {
             <Form.Group>
               <Form.Label>New Health Score</Form.Label>
               <Form.Control
-                type="number"
+                type='number'
                 value={newHealthScore}
                 onChange={(e) => setNewHealthScore(e.target.value)}
               />
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseUpdateModal}>
+            <Button variant='secondary' onClick={handleCloseUpdateModal}>
               Close
             </Button>
-            <Button variant="primary" onClick={handleUpdateHealthScore}>
+            <Button variant='primary' onClick={handleUpdateHealthScore}>
               Save Changes
             </Button>
           </Modal.Footer>
+        </Modal>
+
+        {/* Friend Requests Modal */}
+        <Modal
+          show={showRequestsModal}
+          onHide={() => setShowRequestsModal(false)}
+          centered
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>Friend Requests</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Tabs defaultActiveKey='incoming' id='requests-tabs'>
+              <Tab
+                eventKey='incoming'
+                title={`Incoming (${incomingRequests.length})`}
+              >
+                {incomingRequests.length > 0 ? (
+                  incomingRequests.map((request) => (
+                    <div key={request.request_id} className='request-item'>
+                      <div className='request-info'>
+                        <i className='fas fa-user-circle'></i>
+                        <div>
+                          <div className='request-name'>{request.name}</div>
+                          <div className='request-type'>
+                            {request.type.toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className='request-actions'>
+                        <button
+                          className='accept-btn'
+                          onClick={() =>
+                            handleAcceptRequest(request.request_id)
+                          }
+                        >
+                          <i className='fas fa-check'></i>
+                        </button>
+                        <button
+                          className='reject-btn'
+                          onClick={() =>
+                            handleRejectRequest(request.request_id)
+                          }
+                        >
+                          <i className='fas fa-times'></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p>No incoming requests</p>
+                )}
+              </Tab>
+              <Tab
+                eventKey='outgoing'
+                title={`Outgoing (${outgoingRequests.length})`}
+              >
+                {outgoingRequests.length > 0 ? (
+                  outgoingRequests.map((request) => (
+                    <div key={request.request_id} className='request-item'>
+                      <div className='request-info'>
+                        <i className='fas fa-user-circle'></i>
+                        <div>
+                          <div className='request-name'>{request.name}</div>
+                          <div className='request-type'>
+                            {request.type.toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className='request-status'>
+                        <span className='pending-status'>Pending</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p>No outgoing requests</p>
+                )}
+              </Tab>
+            </Tabs>
+          </Modal.Body>
         </Modal>
       </main>
     </div>

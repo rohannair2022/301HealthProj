@@ -46,7 +46,7 @@ class Patient(db.Model):
     email = db.Column(db.Text, nullable=False, unique=True)
     name = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
-    phone_number = db.Column(db.String(15), nullable=False, unique=True, default="000-000-0000")  # Default phone number
+    phone_number = db.Column(db.String(15), nullable=False, unique=False, default="000-000-0000")  # Default phone number
     avg_heartrate = db.Column(db.Integer, default=70)
     heart_score = db.Column(db.Integer, default=0)
     steps = db.Column(db.Integer, default=0) # NOTE: this is the latest step field now

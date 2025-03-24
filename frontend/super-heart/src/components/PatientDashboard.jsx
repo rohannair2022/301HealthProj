@@ -9,6 +9,7 @@ import HeartRateChart from './HeartRateChart';
 import { Modal, Tabs, Tab } from 'react-bootstrap';
 import logo from '../logo.png'; // Import the logo
 import MobileMenu from './MobileMenu';
+import FriendRequestsModal from './FriendRequestsModal';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -244,7 +245,7 @@ const PatientDashboard = () => {
         }
       );
       // After sending a request, also fetch the friend requests to update the outgoing list
-      fetchFriendRequests();
+      await fetchFriendRequests();
       // Add success feedback
       alert('Friend request sent successfully!');
     } catch (error) {
@@ -322,6 +323,44 @@ const PatientDashboard = () => {
     }
   };
 
+  // Global refresh function
+  const refreshAllData = async () => {
+    console.log('Performing complete data refresh');
+    try {
+      // Refresh everything in sequence to ensure it's all up to date
+      await fetchUserData();
+      await fetchFriendRequests();
+      await fetchFriends();
+      console.log('All data refreshed successfully');
+    } catch (err) {
+      console.error('Error during global refresh:', err);
+    }
+  };
+
+  // Add a function to refresh friend requests - update the existing one
+  const refreshFriendRequests = async () => {
+    await fetchFriendRequests();
+  };
+
+  // Add this useEffect to handle the friend requests state
+  useEffect(() => {
+    // This will run whenever the add friend modal closes
+    if (!isAddFriendModalOpen) {
+      console.log('Modal closed - refreshing friend requests');
+      // Fetch the latest friend requests
+      const updateRequestsAfterModalClose = async () => {
+        try {
+          await fetchFriendRequests();
+          console.log('Refreshed friend requests after modal close');
+        } catch (err) {
+          console.error('Error updating requests after modal close:', err);
+        }
+      };
+
+      updateRequestsAfterModalClose();
+    }
+  }, [isAddFriendModalOpen, fetchFriendRequests]);
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     setIsDarkMode(savedTheme === 'dark');
@@ -355,7 +394,7 @@ const PatientDashboard = () => {
   // Add a useEffect to mark body as dashboard page for specific styling
   useEffect(() => {
     document.body.classList.add('dashboard-active');
-    
+
     return () => {
       document.body.classList.remove('dashboard-active');
     };
@@ -364,11 +403,15 @@ const PatientDashboard = () => {
   return (
     <div className='app-container'>
       <MobileMenu />
-      
+
       {/* Side Navigation */}
       <nav className='side-nav'>
         <div className='logo'>
-          <img src={logo} alt="SuperHeart Logo" style={{ maxWidth: '100%', maxHeight: '40px', marginRight: '10px' }} />
+          <img
+            src={logo}
+            alt='SuperHeart Logo'
+            style={{ maxWidth: '100%', maxHeight: '40px', marginRight: '10px' }}
+          />
           SuperHeart
         </div>
         <ul className='nav-links'>
@@ -445,7 +488,7 @@ const PatientDashboard = () => {
           }}
         >
           <div
-onClick={goToProfile}
+            onClick={goToProfile}
             style={{
               cursor: 'pointer',
               width: '50px',
@@ -457,12 +500,12 @@ onClick={goToProfile}
               alignItems: 'center',
               boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
             }}
->
-          <i
-className='fas fa-user-circle'
+          >
+            <i
+              className='fas fa-user-circle'
               style={{ fontSize: '1.8rem', color: 'white' }}
-></i>
-</div>
+            ></i>
+          </div>
         </div>
 
         {isUpload ? (
@@ -591,9 +634,21 @@ className='fas fa-user-circle'
             </div>
 
             <AddFriendModal
-              isOpen={isAddFriendModalOpen}
-              onClose={() => setIsAddFriendModalOpen(false)}
-              onAddFriend={handleAddFriend}
+              show={isAddFriendModalOpen}
+              onHide={() => {
+                setIsAddFriendModalOpen(false);
+                refreshAllData(); // Refresh everything when modal closes
+              }}
+              onRequestSent={() => {
+                console.log('Friend request sent from modal');
+                refreshAllData().then(() => {
+                  setShowRequestsModal(true); // Show requests after refresh
+                });
+              }}
+              handleAddFriend={async (...args) => {
+                await handleAddFriend(...args);
+                await refreshAllData();
+              }}
             />
           </>
         ) : isProgress ? ( // Progress Section
@@ -658,80 +713,17 @@ className='fas fa-user-circle'
       </main>
 
       {/* Friend Requests Modal */}
-      <Modal
+      <FriendRequestsModal
         show={showRequestsModal}
         onHide={() => setShowRequestsModal(false)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Friend Requests</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Tabs defaultActiveKey='incoming' id='requests-tabs'>
-            <Tab
-              eventKey='incoming'
-              title={`Incoming (${incomingRequests.length})`}
-            >
-              {incomingRequests.length > 0 ? (
-                incomingRequests.map((request) => (
-                  <div key={request.request_id} className='request-item'>
-                    <div className='request-info'>
-                      <i className='fas fa-user-circle'></i>
-                      <div>
-                        <div className='request-name'>{request.name}</div>
-                        <div className='request-type'>
-                          {request.type.toUpperCase()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className='request-actions'>
-                      <button
-                        className='accept-btn'
-                        onClick={() => handleAcceptRequest(request.request_id)}
-                      >
-                        <i className='fas fa-check'></i>
-                      </button>
-                      <button
-                        className='reject-btn'
-                        onClick={() => handleRejectRequest(request.request_id)}
-                      >
-                        <i className='fas fa-times'></i>
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p>No incoming requests</p>
-              )}
-            </Tab>
-            <Tab
-              eventKey='outgoing'
-              title={`Outgoing (${outgoingRequests.length})`}
-            >
-              {outgoingRequests.length > 0 ? (
-                outgoingRequests.map((request) => (
-                  <div key={request.request_id} className='request-item'>
-                    <div className='request-info'>
-                      <i className='fas fa-user-circle'></i>
-                      <div>
-                        <div className='request-name'>{request.name}</div>
-                        <div className='request-type'>
-                          {request.type.toUpperCase()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className='request-status'>
-                      <span className='pending-status'>Pending</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p>No outgoing requests</p>
-              )}
-            </Tab>
-          </Tabs>
-        </Modal.Body>
-      </Modal>
+        incomingRequests={incomingRequests}
+        outgoingRequests={outgoingRequests}
+        handleAcceptRequest={handleAcceptRequest}
+        handleRejectRequest={handleRejectRequest}
+        onRequestUpdated={refreshAllData}
+        onForceRefresh={refreshAllData}
+        refreshButton={true} // Add a refresh button to the modal
+      />
     </div>
   );
 };

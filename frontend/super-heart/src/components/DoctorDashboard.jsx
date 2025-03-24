@@ -6,6 +6,7 @@ import AddFriendModal from './AddFriendModal';
 import { Modal, Button, Form, Tabs, Tab } from 'react-bootstrap';
 import logo from '../logo.png'; // Import the logo
 import MobileMenu from './MobileMenu';
+import FriendRequestsModal from './FriendRequestsModal';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
@@ -223,7 +224,8 @@ const DoctorDashboard = () => {
       // Add success message
       alert('Friend request sent successfully!');
       // Refresh friend requests to see the new outgoing request
-      fetchFriendRequests();
+      await fetchFriendRequests();
+      // If requests modal is open, the updated list should now show
     } catch (error) {
       console.error('Error sending friend request:', error);
       if (error.response && error.response.data) {
@@ -296,6 +298,24 @@ const DoctorDashboard = () => {
     }
   };
 
+  const refreshFriendRequests = async () => {
+    await fetchFriendRequests();
+  };
+
+  // Global refresh function
+  const refreshAllData = async () => {
+    console.log('Performing complete data refresh');
+    try {
+      // Refresh everything in sequence to ensure it's all up to date
+      await fetchDoctorData();
+      await fetchFriendRequests();
+      await fetchFriends();
+      console.log('All data refreshed successfully');
+    } catch (err) {
+      console.error('Error during global refresh:', err);
+    }
+  };
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     setIsDarkMode(savedTheme === 'dark');
@@ -308,7 +328,7 @@ const DoctorDashboard = () => {
   // Add a useEffect to mark body as dashboard page for specific styling
   useEffect(() => {
     document.body.classList.add('dashboard-active');
-    
+
     return () => {
       document.body.classList.remove('dashboard-active');
     };
@@ -324,13 +344,40 @@ const DoctorDashboard = () => {
     navigate('/doctor-profile', { state: { doctorData } });
   };
 
+  useEffect(() => {
+    console.log('isAddFriendModalOpen:', isAddFriendModalOpen);
+  }, [isAddFriendModalOpen]);
+
+  // Add this useEffect to handle the friend requests state
+  useEffect(() => {
+    // This will run whenever the add friend modal closes
+    if (!isAddFriendModalOpen) {
+      console.log('Modal closed - refreshing friend requests');
+      // Fetch the latest friend requests
+      const updateRequestsAfterModalClose = async () => {
+        try {
+          await fetchFriendRequests();
+          console.log('Refreshed friend requests after modal close');
+        } catch (err) {
+          console.error('Error updating requests after modal close:', err);
+        }
+      };
+
+      updateRequestsAfterModalClose();
+    }
+  }, [isAddFriendModalOpen, fetchFriendRequests]);
+
   return (
     <div className='app-container'>
       <MobileMenu />
-      
+
       <nav className='side-nav'>
         <div className='logo'>
-          <img src={logo} alt="SuperHeart Logo" style={{ maxWidth: '100%', maxHeight: '40px', marginRight: '10px' }} />
+          <img
+            src={logo}
+            alt='SuperHeart Logo'
+            style={{ maxWidth: '100%', maxHeight: '40px', marginRight: '10px' }}
+          />
           SuperHeart
         </div>
         <ul className='nav-links'>
@@ -357,13 +404,13 @@ const DoctorDashboard = () => {
         className='main-content'
         style={{ position: 'relative', paddingTop: '30px' }}
       >
-        <div className="profile-circle" onClick={goToProfile}>
+        <div className='profile-circle' onClick={goToProfile}>
           <i className='fas fa-user-circle'></i>
         </div>
-        
+
         {/* Remove the inline styles div for profile button 
             and replace with our standardized component */}
-            
+
         <div className='dashboard-content'>
           <div className='dashboard-header'>
             <h2>Welcome, Dr. {doctorData.name}</h2>
@@ -382,7 +429,10 @@ const DoctorDashboard = () => {
                 </button>
                 <button
                   className='add-friend-btn'
-                  onClick={() => setIsAddFriendModalOpen(true)}
+                  onClick={() => {
+                    console.log('Add Patient button clicked');
+                    setIsAddFriendModalOpen(true);
+                  }}
                 >
                   <i className='fas fa-plus'></i> Add Patient
                 </button>
@@ -452,11 +502,26 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        <AddFriendModal
-          isOpen={isAddFriendModalOpen}
-          onClose={() => setIsAddFriendModalOpen(false)}
-          onAddFriend={handleAddFriend}
-        />
+        {isAddFriendModalOpen && (
+          <AddFriendModal
+            show={isAddFriendModalOpen}
+            onHide={() => {
+              setIsAddFriendModalOpen(false);
+              refreshAllData(); // Refresh everything when modal closes
+            }}
+            onRequestSent={() => {
+              console.log('Friend request sent from modal');
+              refreshAllData().then(() => {
+                setShowRequestsModal(true); // Show requests after refresh
+              });
+            }}
+            isDoctor={true}
+            handleAddFriend={async (...args) => {
+              await handleAddFriend(...args);
+              await refreshAllData();
+            }}
+          />
+        )}
 
         {/* Modal for updating health score */}
         <Modal show={showUpdateModal} onHide={handleCloseUpdateModal}>
@@ -484,84 +549,18 @@ const DoctorDashboard = () => {
         </Modal>
 
         {/* Friend Requests Modal */}
-        <Modal
+        <FriendRequestsModal
           show={showRequestsModal}
           onHide={() => setShowRequestsModal(false)}
-          centered
-        >
-          <Modal.Header closeButton>
-            <Modal.Title>Friend Requests</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Tabs defaultActiveKey='incoming' id='requests-tabs'>
-              <Tab
-                eventKey='incoming'
-                title={`Incoming (${incomingRequests.length})`}
-              >
-                {incomingRequests.length > 0 ? (
-                  incomingRequests.map((request) => (
-                    <div key={request.request_id} className='request-item'>
-                      <div className='request-info'>
-                        <i className='fas fa-user-circle'></i>
-                        <div>
-                          <div className='request-name'>{request.name}</div>
-                          <div className='request-type'>
-                            {request.type.toUpperCase()}
-                          </div>
-                        </div>
-                      </div>
-                      <div className='request-actions'>
-                        <button
-                          className='accept-btn'
-                          onClick={() =>
-                            handleAcceptRequest(request.request_id)
-                          }
-                        >
-                          <i className='fas fa-check'></i>
-                        </button>
-                        <button
-                          className='reject-btn'
-                          onClick={() =>
-                            handleRejectRequest(request.request_id)
-                          }
-                        >
-                          <i className='fas fa-times'></i>
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p>No incoming requests</p>
-                )}
-              </Tab>
-              <Tab
-                eventKey='outgoing'
-                title={`Outgoing (${outgoingRequests.length})`}
-              >
-                {outgoingRequests.length > 0 ? (
-                  outgoingRequests.map((request) => (
-                    <div key={request.request_id} className='request-item'>
-                      <div className='request-info'>
-                        <i className='fas fa-user-circle'></i>
-                        <div>
-                          <div className='request-name'>{request.name}</div>
-                          <div className='request-type'>
-                            {request.type.toUpperCase()}
-                          </div>
-                        </div>
-                      </div>
-                      <div className='request-status'>
-                        <span className='pending-status'>Pending</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p>No outgoing requests</p>
-                )}
-              </Tab>
-            </Tabs>
-          </Modal.Body>
-        </Modal>
+          incomingRequests={incomingRequests}
+          outgoingRequests={outgoingRequests}
+          handleAcceptRequest={handleAcceptRequest}
+          handleRejectRequest={handleRejectRequest}
+          onRequestUpdated={refreshAllData}
+          onForceRefresh={refreshAllData}
+          isDoctor={true}
+          refreshButton={true} // Add a refresh button to the modal
+        />
       </main>
     </div>
   );

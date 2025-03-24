@@ -26,7 +26,7 @@
 }
 
 .upload-content {
-  background: white;
+  background: var(--bg-secondary);
   padding: 30px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -35,6 +35,10 @@
   text-align: center;
 }
 
+.upload-content p {
+  color: var(--text-secondary);
+  margin: 20px 0;
+}
 .upload-controls {
   display: flex;
   flex-direction: column;
@@ -45,8 +49,56 @@
 .file-input {
   padding: 10px;
   border: 1px solid #ddd;
+  color: var(--text-primary);
   border-radius: 4px;
   width: 100%;
+}
+
+/* Mobile menu button - hidden by default on desktop */
+.mobile-menu-toggle {
+  display: none;
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  background-color: var(--highlight-color);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+/* Profile circle - Only visible on dashboard pages */
+.profile-circle {
+  display: none; /* Hidden by default */
+  cursor: pointer;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: var(--highlight-color);
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+  position: absolute;
+  top: 40px;
+  right: 40px;
+  z-index: 100;
+}
+
+.profile-circle i {
+  font-size: 1.8rem;
+  color: white;
+}
+
+/* Show profile circle only on dashboard pages */
+.dashboard-active .profile-circle {
+  display: flex;
 }
 
 .upload-button {
@@ -1292,4 +1344,131 @@ body {
 
 .add-friend-btn i {
   font-size: 12px;
+}
+
+/* Enhanced responsive styles */
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .horizontal-chart {
+    max-width: 100%;
+    min-width: 300px;
+  }
+}
+
+@media (max-width: 992px) {
+  .side-nav {
+    transform: translateX(-100%);
+    position: fixed;
+    z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+  }
+  
+  .side-nav.active {
+    transform: translateX(0);
+  }
+  
+  .mobile-menu-toggle {
+    display: flex;
+  }
+  
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    padding-top: 60px; /* Space for mobile menu button */
+  }
+  
+  .profile-circle {
+    top: 20px;
+    right: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .horizontal-charts-container {
+    flex-direction: column;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .section-header > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .chart-wrapper {
+    height: 250px;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-card {
+    padding: 15px;
+  }
+  
+  .dashboard-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .view-requests-btn, 
+  .add-friend-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .friend-actions {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .profile-circle {
+    width: 40px;
+    height: 40px;
+    top: 15px;
+    right: 15px;
+  }
+  
+  .profile-circle i {
+    font-size: 1.4rem;
+  }
+  
+  .search-bar {
+    padding: 8px 10px;
+  }
+  
+  .nav-tabs .nav-link {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+}
+
+/* When menu is open, add overlay to make it easier to close by clicking outside */
+.menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.menu-overlay.active {
+  display: block;
 }

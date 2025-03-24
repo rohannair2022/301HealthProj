@@ -7,7 +7,8 @@ import AddFriendModal from './AddFriendModal';
 import StepsChart from './StepsChart';
 import HeartRateChart from './HeartRateChart';
 import { Modal, Tabs, Tab } from 'react-bootstrap';
-// import SpO2Chart from "./SpO2Chart";
+import logo from '../logo.png'; // Import the logo
+import MobileMenu from './MobileMenu';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -119,7 +120,7 @@ const PatientDashboard = () => {
           heart_score: response.data.patient.heart_score || 0,
           steps: response.data.patient.steps || 0,
           sleep: response.data.patient.sleep || null,
-          br: response.data.patient.br || null,
+          br: response.data.patient.breathing_rate || null,
           spo2: response.data.patient.spo2 || null,
           name: response.data.patient.name || '?',
           email: response.data.patient.email || '?',
@@ -351,11 +352,25 @@ const PatientDashboard = () => {
     navigate('/patient-profile', { state: { userData, isDarkMode } });
   };
 
+  // Add a useEffect to mark body as dashboard page for specific styling
+  useEffect(() => {
+    document.body.classList.add('dashboard-active');
+    
+    return () => {
+      document.body.classList.remove('dashboard-active');
+    };
+  }, []);
+
   return (
     <div className='app-container'>
+      <MobileMenu />
+      
       {/* Side Navigation */}
       <nav className='side-nav'>
-        <div className='logo'>SuperHeart</div>
+        <div className='logo'>
+          <img src={logo} alt="SuperHeart Logo" style={{ maxWidth: '100%', maxHeight: '40px', marginRight: '10px' }} />
+          SuperHeart
+        </div>
         <ul className='nav-links'>
           <li
             onClick={() => {
@@ -430,7 +445,7 @@ const PatientDashboard = () => {
           }}
         >
           <div
-            onClick={goToProfile}
+onClick={goToProfile}
             style={{
               cursor: 'pointer',
               width: '50px',
@@ -442,12 +457,12 @@ const PatientDashboard = () => {
               alignItems: 'center',
               boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
             }}
-          >
-            <i
-              className='fas fa-user-circle'
+>
+          <i
+className='fas fa-user-circle'
               style={{ fontSize: '1.8rem', color: 'white' }}
-            ></i>
-          </div>
+></i>
+</div>
         </div>
 
         {isUpload ? (
@@ -494,7 +509,7 @@ const PatientDashboard = () => {
                 <div className='dashboard-card'>
                   <h3>Breathing Rate</h3>
                   <div className='measurement'>{userData?.br || 'N/A'}</div>
-                  <p>Number of breaths per minute</p>
+                  <p>Number of breaths per minute while sleeping</p>
                 </div>
 
                 <div className='dashboard-card'>

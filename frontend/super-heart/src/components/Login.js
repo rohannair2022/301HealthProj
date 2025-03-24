@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import './Login.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import logo from '../logo.png'; // Import the logo
 
 const Login = () => {
   const navigate = useNavigate();
@@ -99,6 +100,7 @@ const Login = () => {
       </div> */}
       <div className='login-card'>
         <div className='login-form'>
+          <img src={logo} alt="SuperHeart Logo" className="logo-image" style={{ maxWidth: '150px', margin: '0 auto 20px', display: 'block' }} />
           <h2>Login</h2>
           <form onSubmit={handleLogin}>
             <div className='form-group'>
@@ -123,13 +125,21 @@ const Login = () => {
                 required
               />
             </div>
+            <div className="form-group">
+              <div className="login-btn">
+                <Link to="/forgot-password">Forgot password?</Link>
+              </div>
+            </div>
             <button className='login-btn' type='submit'>
               Login
             </button>
+            <button className="register-link" onClick={() => navigate("/register")}>
+              Don't have an account? Register now!
+            </button>
           </form>
-          <button className='forgot-password' onClick={handleForgotPassword}>
+          {/* <button className='forgot-password' onClick={handleForgotPassword}>
             Forgot Password?
-          </button>
+          </button> */}
           {/* <button className="login-tester" onClick={() => navigate("/test")}>
             Login as Tester
           </button> */}

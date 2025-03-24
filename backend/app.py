@@ -11,8 +11,9 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from flask_restx import Api
 from flask_restx import Namespace
-from email.message import EmailMessage
+import secrets
 import smtplib
+from email.message import EmailMessage
 
 # Load environment variables from .env file
 load_dotenv()
@@ -206,7 +207,115 @@ def protected():
 
     return jsonify({"message": "Access granted", "user": {"u_id": user.u_id, "name": user.name}}), 200
 
-# @app.route('/protected', methods=['GET'])
+password_reset_tokens = {}  # Store email -> token mapping
+
+@app.route('/request_password_reset', methods=['POST'])
+def request_password_reset():
+    data = request.get_json()
+    email = data.get('email')
+    
+    # Check if email exists in the system
+    user = Patient.query.filter_by(email=email).first() or Doctor.query.filter_by(email=email).first()
+    
+    if not user:
+        return jsonify({'message': 'If this email exists in our system, a reset link has been sent'}), 200
+    
+    # Generate a reset token
+    reset_token = secrets.token_hex(16)
+    password_reset_tokens[email] = reset_token
+    
+    # Print token to console for development purposes
+    print(f"PASSWORD RESET TOKEN for {email}: {reset_token}")
+    
+    # Send email using Gmail
+    try:
+        gmail_user = "superhear.csc301@gmail.com"
+        gmail_pass = os.getenv("GMAIL_PASSWORD")
+
+        msg = EmailMessage()
+        msg["From"] = gmail_user
+        msg["To"] = email
+        msg["Subject"] = "Super Heart Password Reset"
+
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                }}
+                h1 {{
+                    color: #d22;
+                }}
+                .code {{
+                    background-color: #f5f5f5;
+                    padding: 10px 15px;
+                    border-radius: 4px;
+                    font-family: monospace;
+                    font-size: 16px;
+                    border-left: 4px solid #d22;
+                    margin: 15px 0;
+                }}
+                .note {{
+                    font-size: 14px;
+                    color: #666;
+                    margin-top: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Password Reset Request</h1>
+            <p>We received a request to reset your password for your Super Heart account.</p>
+            <p>Your password reset code is:</p>
+            <div class="code">{reset_token}</div>
+            <p>Enter this code along with your new password on the password reset page.</p>
+            <p>If you didn't request a password reset, please ignore this email or contact support.</p>
+            <p class="note">This code will expire after use.</p>
+            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+        </body>
+        </html>
+        """
+
+        msg.set_content("Your password reset code is: " + reset_token)
+        msg.add_alternative(html_content, subtype="html")
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+        print("Password reset email sent successfully!")
+        
+    except Exception as e:
+        print(f"Error sending password reset email: {e}")
+        # Continue anyway so the API call succeeds
+    
+    return jsonify({'message': 'If this email exists in our system, a reset link has been sent'}), 200
+
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    email = data.get('email')
+    reset_token = data.get('reset_token')
+    new_password = data.get('new_password')
+    
+    # Validate token
+    if email not in password_reset_tokens or password_reset_tokens[email] != reset_token:
+        return jsonify({'message': 'Invalid or expired reset token'}), 400
+    
+    # Update password
+    user = Patient.query.filter_by(email=email).first() or Doctor.query.filter_by(email=email).first()
+    
+    if user:
+        # Hash the password
+        hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+        user.password = hashed_password
+        db.session.commit()
+    
+    # Remove used token
+    del password_reset_tokens[email]
+
+    return jsonify({'message': 'Password reset successful'}), 200
 # @jwt_required()
 # def protected():
 #     current_user = get_jwt_identity()
@@ -216,7 +325,8 @@ def protected():
 #         user_type = current_user.get('type')
 #         user_email = current_user.get('email')
 
-#         if user_type == 'doctor':
+#         if user_
+# type == 'doctor':
 #             user = Doctor.query.filter_by(email=user_email).first()
 #         else:
 #             user = Patient.query.filter_by(email=user_email).first()
@@ -366,7 +476,11 @@ def remove_patient(u_id):
 def get_weekly_steps():
     user_email = get_jwt_identity()
     patient = Patient.query.filter_by(email=user_email).first()
+    with open(TOKEN_FILE_PATH, 'r') as file:
+        tokens = json.load(file)
     
+    if tokens['user'] and tokens['user'] != user_email:
+        return jsonify({"error": "Unauthorized"}), 401
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
 
@@ -380,13 +494,14 @@ def get_weekly_steps():
         if not access_token:
             return jsonify({"error": "Fitbit not connected"}), 400
 
+        print("HERE")
         # Fetch step data from Fitbit API
         url = f"https://api.fitbit.com/1/user/-/activities/steps/date/{start_date}/{end_date}.json"
         response = requests.get(url, headers={
             'Authorization': f'Bearer {access_token}',
             'Accept': 'application/json'
         })
-
+        print("HERE2", response.json())
         # Handle token expiration
         if response.status_code == 401:
             # Refresh the token and retry
@@ -407,10 +522,11 @@ def get_weekly_steps():
         if response.status_code != 200:
             return jsonify({"error": "Failed to fetch Fitbit data"}), 500
 
+        print("HERE3")
         # Process the response
         fitbit_data = response.json().get('activities-steps', [])
         steps_dict = {entry['dateTime']: int(entry['value']) for entry in fitbit_data}
-        
+        print("HERE4")
         # Fill in missing days with 0 steps
         complete_data = []
         for i in range(7):
@@ -419,7 +535,7 @@ def get_weekly_steps():
                 "date": date,
                 "steps": steps_dict.get(date, 0)
             })
-
+        print("HERE5")
         return jsonify({"weekly_steps": complete_data}), 200
 
     except Exception as e:
@@ -431,6 +547,12 @@ def get_weekly_steps():
 def get_weekly_heart_rate():
     user_email = get_jwt_identity()
     patient = Patient.query.filter_by(email=user_email).first()
+    
+    with open(TOKEN_FILE_PATH, 'r') as file:
+        tokens = json.load(file)
+    
+    if tokens['user'] and tokens['user'] != user_email:
+        return jsonify({"error": "Unauthorized"}), 401
     
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
@@ -930,6 +1052,7 @@ def get_patient_data():
             get_fitbit_data(2)
     except (FileNotFoundError, KeyError):
         # Token file doesn't exist or doesn't contain user key
+        # print('here ib p')
         pass
         
     # Retrieve patient data
@@ -1190,7 +1313,7 @@ def callback():
         'client_id': client_id,
         'grant_type': 'authorization_code',
         'code': code,
-        'code_verifier': verifier   ,
+        'code_verifier': verifier,
         'redirect_uri': os.getenv("FITBIT_REDIRECT_URI")
     },
     headers={
@@ -1255,7 +1378,7 @@ def get_fitbit_data(tries=1):
             elif 'br' in url:
                 # print('Breathing Rate:', data['br'][0]['value']['breathingRate'])
                 try:
-                    breating_rate = data['br'][0]['value']['fullSleepSummary']
+                    breating_rate = data['br'][0]['value']['fullSleepSummary']['breathingRate']
                     patient.breathing_rate = breating_rate
                     print('Breathing Rate:', breating_rate)
                     db.session.commit()

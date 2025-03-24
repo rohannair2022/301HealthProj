@@ -1873,27 +1873,37 @@ def send_friend_request():
     try:
         # Get the current user's ID and type
         current_user = get_jwt_identity()
+        user_type = get_user_type_from_email(current_user)
+        
+        # Get data from request body
         data = request.get_json()
         
-        user_type = get_user_type_from_email(current_user)
+        receiver_id = data.get('receiver_id')
+        receiver_type = data.get('receiver_type')
+        
+        if not receiver_id or not receiver_type:
+            return jsonify({'error': 'Missing receiver_id or receiver_type'}), 400
+        
+        # Get current user ID
         if user_type == 'patient':
             user = Patient.query.filter_by(email=current_user).first()
         else:
             user = Doctor.query.filter_by(email=current_user).first()
         
-        receiver_id = data.get('receiver_id')
-        receiver_type = data.get('receiver_type')
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
         
-        # Check if a request already exists
+        # Check if an active request already exists
         existing_request = FriendRequest.query.filter(
             ((FriendRequest.sender_id == user.u_id) & (FriendRequest.sender_type == user_type) &
              (FriendRequest.receiver_id == receiver_id) & (FriendRequest.receiver_type == receiver_type)) |
             ((FriendRequest.sender_id == receiver_id) & (FriendRequest.sender_type == receiver_type) &
-             (FriendRequest.receiver_id == user.u_id) & (FriendRequest.receiver_type == user_type))
+             (FriendRequest.receiver_id == user.u_id) & (FriendRequest.receiver_type == user_type)),
+            FriendRequest.status == 'pending'  # Only consider pending requests
         ).first()
         
         if existing_request:
-            return jsonify({'message': 'Friend request already exists'}), 400
+            return jsonify({'error': 'Friend request already exists', 'status': 'existing_request'}), 400
         
         # Check if already friends
         existing_friendship = Friendship.query.filter(
@@ -1904,7 +1914,7 @@ def send_friend_request():
         ).first()
         
         if existing_friendship:
-            return jsonify({'message': 'You are already friends'}), 400
+            return jsonify({'error': 'You are already friends', 'status': 'already_friends'}), 400
         
         # Create and save the friend request
         friend_request = FriendRequest(
@@ -1921,6 +1931,7 @@ def send_friend_request():
         return jsonify({'message': 'Friend request sent successfully'}), 200
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 # List friend requests
@@ -2063,7 +2074,7 @@ def accept_friend_request(request_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# Reject a friend request
+# Reject a friend request (modified to also handle cancellation)
 @app.route('/reject_friend_request/<int:request_id>', methods=['POST'])
 @jwt_required()
 def reject_friend_request(request_id):
@@ -2077,24 +2088,35 @@ def reject_friend_request(request_id):
         else:
             user = Doctor.query.filter_by(email=current_user).first()
         
-        # Find the friend request
-        friend_request = FriendRequest.query.filter_by(
-            id=request_id,
-            receiver_id=user.u_id,
-            receiver_type=user_type,
-            status='pending'
+        # Find the friend request (either as receiver or sender)
+        friend_request = FriendRequest.query.filter(
+            FriendRequest.id == request_id,
+            ((FriendRequest.receiver_id == user.u_id) & 
+             (FriendRequest.receiver_type == user_type)) |
+            ((FriendRequest.sender_id == user.u_id) & 
+             (FriendRequest.sender_type == user_type)),
+            FriendRequest.status == 'pending'
         ).first()
         
         if not friend_request:
             return jsonify({'error': 'Friend request not found'}), 404
         
-        # Update the request status
-        friend_request.status = 'rejected'
-        db.session.commit()
+        # If user is receiver, mark as rejected
+        if friend_request.receiver_id == user.u_id and friend_request.receiver_type == user_type:
+            friend_request.status = 'rejected'
+            db.session.commit()
+            return jsonify({'message': 'Friend request rejected'}), 200
         
-        return jsonify({'message': 'Friend request rejected'}), 200
+        # If user is sender, delete the request
+        if friend_request.sender_id == user.u_id and friend_request.sender_type == user_type:
+            db.session.delete(friend_request)
+            db.session.commit()
+            return jsonify({'message': 'Friend request cancelled'}), 200
+        
+        return jsonify({'error': 'Unauthorized to modify this request'}), 403
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

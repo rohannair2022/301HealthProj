@@ -125,7 +125,134 @@ h2 {
   .form-group input,
   .login-btn,
   .forgot-password,
+  .register-link,
   .login-tester {
     font-size: 0.9rem;
   }
+}
+
+.instruction-text {
+  margin-bottom: 20px;
+  color: #5a6369;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.message {
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.error-message {
+  background-color: #fdecea;
+  color: #d32f2f;
+  border: 1px solid #f5c2c7;
+}
+
+.success-message {
+  background-color: #e8f5e9;
+  color: #1e4620;
+  border: 1px solid #a3cfbb;
+}
+
+.logo-image {
+  max-width: 150px;
+  margin: 0 auto 20px;
+  display: block;
+  height: auto;
+  object-fit: contain;
+}
+
+.register-link {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  color: #4f7f7b;
+  text-decoration: underline;
+  margin-top: 15px;
+  padding: 8px;
+  width: 100%;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.register-link:hover {
+  color: #5ba89e;
+}
+
+.form-footer {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.form-footer a {
+  color: #4f7f7b;
+  text-decoration: none;
+}
+
+.form-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive styles */
+@media (max-width: 500px) {
+  .login-card {
+    width: 90%;
+    max-width: 400px;
+    padding: 20px;
+  }
+  
+  .logo-image {
+    max-width: 120px;
+  }
+}
+
+body.dark-mode .instruction-text {
+  color: #b0b0b0;
+}
+
+body.dark-mode .error-message {
+  background-color: rgba(211, 47, 47, 0.15);
+  color: #ff8a80;
+  border: 1px solid rgba(255, 205, 210, 0.3);
+}
+
+body.dark-mode .success-message {
+  background-color: rgba(46, 125, 50, 0.15);
+  color: #b9f6ca;
+  border: 1px solid rgba(200, 230, 201, 0.3);
+}
+
+body.dark-mode .form-footer a {
+  color: #64b5f6;
+}
+
+.register-link {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 12px;
+  text-align: center;
+  display: inline-block;
+  border: none;
+}
+
+.register-link {
+  background-color: transparent;
+  color: #77c6c2;
+  border: 1px solid #77c6c2;
+}
+
+.register-link:hover {
+  background-color: #e0f7f7;
 }

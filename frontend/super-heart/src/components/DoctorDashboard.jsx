@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AddFriendModal from './AddFriendModal';
 import { Modal, Button, Form, Tabs, Tab } from 'react-bootstrap';
+import logo from '../logo.png'; // Import the logo
+import MobileMenu from './MobileMenu';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
@@ -303,6 +305,15 @@ const DoctorDashboard = () => {
     fetchFriendRequests();
   }, [fetchFriends, fetchFriendRequests]);
 
+  // Add a useEffect to mark body as dashboard page for specific styling
+  useEffect(() => {
+    document.body.classList.add('dashboard-active');
+    
+    return () => {
+      document.body.classList.remove('dashboard-active');
+    };
+  }, []);
+
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
     document.body.className = !isDarkMode ? 'dark-mode' : '';
@@ -315,8 +326,13 @@ const DoctorDashboard = () => {
 
   return (
     <div className='app-container'>
+      <MobileMenu />
+      
       <nav className='side-nav'>
-        <div className='logo'>SuperHeart</div>
+        <div className='logo'>
+          <img src={logo} alt="SuperHeart Logo" style={{ maxWidth: '100%', maxHeight: '40px', marginRight: '10px' }} />
+          SuperHeart
+        </div>
         <ul className='nav-links'>
           <li>
             <i className='fas fa-home'></i> Dashboard
@@ -341,35 +357,13 @@ const DoctorDashboard = () => {
         className='main-content'
         style={{ position: 'relative', paddingTop: '30px' }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            top: '40px', // Increased from 20px to 40px
-            right: '40px', // Increased from 20px to 40px
-            zIndex: 100,
-          }}
-        >
-          <div
-            onClick={goToProfile}
-            style={{
-              cursor: 'pointer',
-              width: '50px',
-              height: '50px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--highlight-color)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
-            }}
-          >
-            <i
-              className='fas fa-user-circle'
-              style={{ fontSize: '1.8rem', color: 'white' }}
-            ></i>
-          </div>
+        <div className="profile-circle" onClick={goToProfile}>
+          <i className='fas fa-user-circle'></i>
         </div>
-
+        
+        {/* Remove the inline styles div for profile button 
+            and replace with our standardized component */}
+            
         <div className='dashboard-content'>
           <div className='dashboard-header'>
             <h2>Welcome, Dr. {doctorData.name}</h2>

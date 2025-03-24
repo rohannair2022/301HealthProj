@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import "./Register.css";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import logo from '../logo.png'; // Import the logo
 
 const Register = () => {
   const navigate = useNavigate();
@@ -74,10 +75,16 @@ const Register = () => {
   };
 
   return (
-    <div className="register-container">
-      <div className="register-card">
-        <div className="register-form">
-          <h2>Create Account</h2>
+    <div className="login-container">
+      <div className="login-card">
+        <div className="login-form">
+          <img 
+            src={logo} 
+            alt="SuperHeart Logo" 
+            className="logo-image" 
+            style={{ maxWidth: '150px', margin: '0 auto 20px', display: 'block' }} 
+          />
+          <h2>Register</h2>
           {error && <div className="error-message">{error}</div>}
           <form onSubmit={(e) => e.preventDefault()}>
             <div className="form-group">

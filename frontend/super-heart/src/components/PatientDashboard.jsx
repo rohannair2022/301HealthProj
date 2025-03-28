@@ -75,7 +75,7 @@ const PatientDashboard = () => {
           },
         }
       );
-
+      console.log('Code creation response:', codeCreation.data);
       const client_id = codeCreation.data.client_id;
       const code_challenge = codeCreation.data.code_challenge;
       const scope =

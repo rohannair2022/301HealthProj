@@ -26,7 +26,7 @@ const ForgotPassword = () => {
         email: email
       });
       
-      setMessage("Reset code has been sent. Please check your email or the server console.");
+      setMessage("Reset code has been sent. Please check your email.");
       setResetSent(true);
       setIsError(false);
     } catch (error) {

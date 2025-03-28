@@ -165,8 +165,10 @@ def register(type):
 # Update your login route to check both tables
 @app.route('/login', methods=['POST'])
 def login():
+    with open(TOKEN_FILE_PATH, "w") as file:
+        json.dump({}, file)
     data = request.get_json()
-    print(data)
+    # print(data)
     if not data.get('email') or not data.get('password'):
         return jsonify({"error": "Email and password are required"}), 400
 
@@ -226,11 +228,10 @@ def request_password_reset():
     
     # Print token to console for development purposes
     print(f"PASSWORD RESET TOKEN for {email}: {reset_token}")
-    
     # Send email using Gmail
     try:
         gmail_user = "superhear.csc301@gmail.com"
-        gmail_pass = os.getenv("GMAIL_PASSWORD")
+        gmail_pass = os.getenv("gmail_pass")
 
         msg = EmailMessage()
         msg["From"] = gmail_user
@@ -493,15 +494,12 @@ def get_weekly_steps():
         access_token, _ = load_tokens_from_file()
         if not access_token:
             return jsonify({"error": "Fitbit not connected"}), 400
-
-        print("HERE")
         # Fetch step data from Fitbit API
         url = f"https://api.fitbit.com/1/user/-/activities/steps/date/{start_date}/{end_date}.json"
         response = requests.get(url, headers={
             'Authorization': f'Bearer {access_token}',
             'Accept': 'application/json'
         })
-        print("HERE2", response.json())
         # Handle token expiration
         if response.status_code == 401:
             # Refresh the token and retry
@@ -521,12 +519,9 @@ def get_weekly_steps():
 
         if response.status_code != 200:
             return jsonify({"error": "Failed to fetch Fitbit data"}), 500
-
-        print("HERE3")
         # Process the response
         fitbit_data = response.json().get('activities-steps', [])
         steps_dict = {entry['dateTime']: int(entry['value']) for entry in fitbit_data}
-        print("HERE4")
         # Fill in missing days with 0 steps
         complete_data = []
         for i in range(7):
@@ -535,7 +530,6 @@ def get_weekly_steps():
                 "date": date,
                 "steps": steps_dict.get(date, 0)
             })
-        print("HERE5")
         return jsonify({"weekly_steps": complete_data}), 200
 
     except Exception as e:
@@ -1269,6 +1263,7 @@ def delete_file(filename):
 @app.route('/connect_watch', methods=['GET'])
 @jwt_required()
 def connect_watch():
+    # Generate a random code verifier and challenge
     if os.getenv("state") == '':
         verifier = base64.b64encode(os.urandom(32)).decode().rstrip("=")
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
@@ -1363,6 +1358,7 @@ def get_fitbit_data(tries=1):
                     # print(heart_rate)
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
+                    db.session.rollback()
                     responses.append((jsonify({"error": "Data not present"}), 290))
             elif 'steps' in url:
                 # print('here')
@@ -1373,6 +1369,7 @@ def get_fitbit_data(tries=1):
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
+                    db.session.rollback()
                     responses.append(( jsonify({"error": "Data not present"}), 290))
 
             elif 'br' in url:
@@ -1384,6 +1381,7 @@ def get_fitbit_data(tries=1):
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
+                    db.session.rollback()
                     responses.append((jsonify({"error": "Data not present"}), 290))
             elif 'spo2' in url:
                 # print('Spo2:', data['value']['avg'])
@@ -1394,6 +1392,7 @@ def get_fitbit_data(tries=1):
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
+                    db.session.rollback()
                     responses.append((jsonify({"error": "Data not present"}), 290))
             elif 'ecg' in url:
                 # print('ECG:', data['ecgReadings'][0]['resultClassification'])
@@ -1404,6 +1403,7 @@ def get_fitbit_data(tries=1):
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
+                    db.session.rollback()
                     responses.append((jsonify({"error": "Data not present"}), 290))
             elif 'sleep' in url:
                 try:
@@ -1413,6 +1413,7 @@ def get_fitbit_data(tries=1):
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:
+                    db.session.rollback()
                     responses.append((jsonify({"error": "Data not present"}), 290))
             # elif 'profile' in url:
             #     try:

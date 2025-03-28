@@ -1758,41 +1758,79 @@ def update_user_progress(email, name, old_score, new_score):
     msg["To"] = email
     msg["Subject"] = "Your Progress Update from Super Heart!"
 
-    # Define html_content before using it
-    html_content = f"""
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                line-height: 1.5;
-                color: #333;
-            }}
-            h1 {{
-                color: #4caf50;
-            }}
-            p {{
-                font-size: 16px;
-            }}
-            .congrats {{
-                color: #4caf50;
-                font-weight: bold;
-            }}
-            .encouragement {{
-                color: #d22;
-                font-weight: bold;
-            }}
-        </style>
-    </head>
-    <body>
-        <h1>Congratulations, {name}!</h1>
-        <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
-        <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
-        <p>We're proud of your efforts!</p>
-        <p><strong>Best regards,</strong><br>The Super Heart Team</p>
-    </body>
-    </html>
-    """
+    # HTML Content based on score change
+    if new_score > old_score:
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                }}
+                h1 {{
+                    color: #4caf50;
+                }}
+                p {{
+                    font-size: 16px;
+                }}
+                .congrats {{
+                    color: #4caf50;
+                    font-weight: bold;
+                }}
+                .encouragement {{
+                    color: #d22;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Congratulations, {name}!</h1>
+            <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+            <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
+            <p>We're proud of your efforts!</p>
+            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+        </body>
+        </html>
+        """
+    elif new_score < old_score:
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                }}
+                h1 {{
+                    color: #d22;
+                }}
+                p {{
+                    font-size: 16px;
+                }}
+                .congrats {{
+                    color: #4caf50;
+                    font-weight: bold;
+                }}
+                .encouragement {{
+                    color: #d22;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Hey {name},</h1>
+            <p>Your score has dropped from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+            <p class="encouragement">Don't worry! It's normal to have ups and downs, but remember: the most important part is to keep trying and staying active!</p>
+            <p>We believe in your potential! Keep up the effort, and you’ll be back on track in no time!!!</p>
+
+            <h6>p.s, put down the ice cream eh?</h6>
+            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+        </body>
+        </html>
+        """
 
     msg.set_content("Your email client does not support HTML.")
     msg.add_alternative(html_content, subtype="html")

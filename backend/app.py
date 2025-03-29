@@ -1847,6 +1847,9 @@ def update_user_progress(email, name, old_score, new_score):
         """
         msg.set_content("Your email client does not support HTML.")
         msg.add_alternative(html_content, subtype="html")
+    
+    else:
+        return
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:

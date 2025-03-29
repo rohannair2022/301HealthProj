@@ -389,15 +389,20 @@ def create_patient():
     return jsonify({"message": "Patient created successfully", "u_id": new_patient.u_id}), 201
 
 # Doctor Editing 
-@app.route('/edit_doctor/<int:u_id>', methods=['POST'])
+@app.route('/edit_doctor', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
-# @jwt_required()
-def edit_doctor(u_id):
+@jwt_required()
+def edit_doctor():
     data = request.get_json()
 
-    doctor = Doctor.query.get(u_id)
+    current_user_email = get_jwt_identity()
+    doctor = Doctor.query.filter_by(email=current_user_email).first()
     if not doctor:
         return jsonify({"error": "Doctor not found"}), 404
+    
+    missing_keys = set(doctor.__dict__.keys()) - set(data.keys())
+    if missing_keys:
+        return jsonify({"error": "NON-EXISTENT FIELD IN REQUEST"}), 400
 
     if 'name' in data:
         doctor.name = data['name']
@@ -421,13 +426,19 @@ def edit_doctor(u_id):
 
 
 # Patient Editing 
-@app.route('/edit_patient/<int:u_id>', methods=['POST'])
+@app.route('/edit_patient', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
-# @jwt_required()
-def edit_patient(u_id):
+@jwt_required()
+def edit_patient():
     data = request.get_json()
 
-    patient = Patient.query.get(u_id)
+    current_user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=current_user_email).first()
+
+    missing_keys = set(patient.__dict__.keys()) - set(data.keys())
+    if missing_keys:
+        return jsonify({"error": "NON-EXISTENT FIELD IN REQUEST"}), 400
+
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
 
@@ -1794,6 +1805,9 @@ def update_user_progress(email, name, old_score, new_score):
         </body>
         </html>
         """
+        msg.set_content("Your email client does not support HTML.")
+        msg.add_alternative(html_content, subtype="html")
+
     elif new_score < old_score:
         html_content = f"""
         <html>
@@ -1831,9 +1845,8 @@ def update_user_progress(email, name, old_score, new_score):
         </body>
         </html>
         """
-
-    msg.set_content("Your email client does not support HTML.")
-    msg.add_alternative(html_content, subtype="html")
+        msg.set_content("Your email client does not support HTML.")
+        msg.add_alternative(html_content, subtype="html")
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:

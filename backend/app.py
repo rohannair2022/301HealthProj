@@ -391,15 +391,20 @@ def create_patient():
     return jsonify({"message": "Patient created successfully", "u_id": new_patient.u_id}), 201
 
 # Doctor Editing 
-@app.route('/edit_doctor/<int:u_id>', methods=['POST'])
+@app.route('/edit_doctor', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
-# @jwt_required()
-def edit_doctor(u_id):
+@jwt_required()
+def edit_doctor():
     data = request.get_json()
 
-    doctor = Doctor.query.get(u_id)
+    current_user_email = get_jwt_identity()
+    doctor = Doctor.query.filter_by(email=current_user_email).first()
     if not doctor:
         return jsonify({"error": "Doctor not found"}), 404
+    
+    missing_keys = set(doctor.__dict__.keys()) - set(data.keys())
+    if missing_keys:
+        return jsonify({"error": "NON-EXISTENT FIELD IN REQUEST"}), 400
 
     if 'name' in data:
         doctor.name = data['name']
@@ -423,13 +428,19 @@ def edit_doctor(u_id):
 
 
 # Patient Editing 
-@app.route('/edit_patient/<int:u_id>', methods=['POST'])
+@app.route('/edit_patient', methods=['POST'])
 # Uncomment the next line if you want to protect this route with JWT authentication
-# @jwt_required()
-def edit_patient(u_id):
+@jwt_required()
+def edit_patient():
     data = request.get_json()
 
-    patient = Patient.query.get(u_id)
+    current_user_email = get_jwt_identity()
+    patient = Patient.query.filter_by(email=current_user_email).first()
+
+    missing_keys = set(patient.__dict__.keys()) - set(data.keys())
+    if missing_keys:
+        return jsonify({"error": "NON-EXISTENT FIELD IN REQUEST"}), 400
+
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
 
@@ -1790,44 +1801,87 @@ def update_user_progress(email, name, old_score, new_score):
     msg["To"] = email
     msg["Subject"] = "Your Progress Update from Super Heart!"
 
-    # Define html_content before using it
-    html_content = f"""
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                line-height: 1.5;
-                color: #333;
-            }}
-            h1 {{
-                color: #4caf50;
-            }}
-            p {{
-                font-size: 16px;
-            }}
-            .congrats {{
-                color: #4caf50;
-                font-weight: bold;
-            }}
-            .encouragement {{
-                color: #d22;
-                font-weight: bold;
-            }}
-        </style>
-    </head>
-    <body>
-        <h1>Congratulations, {name}!</h1>
-        <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
-        <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
-        <p>We're proud of your efforts!</p>
-        <p><strong>Best regards,</strong><br>The Super Heart Team</p>
-    </body>
-    </html>
-    """
+    # HTML Content based on score change
+    if new_score > old_score:
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                }}
+                h1 {{
+                    color: #4caf50;
+                }}
+                p {{
+                    font-size: 16px;
+                }}
+                .congrats {{
+                    color: #4caf50;
+                    font-weight: bold;
+                }}
+                .encouragement {{
+                    color: #d22;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Congratulations, {name}!</h1>
+            <p>Your score has improved from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+            <p class="congrats">Great job! Keep up the good work and continue staying active to maintain this awesome progress.</p>
+            <p>We're proud of your efforts!</p>
+            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+        </body>
+        </html>
+        """
+        msg.set_content("Your email client does not support HTML.")
+        msg.add_alternative(html_content, subtype="html")
 
-    msg.set_content("Your email client does not support HTML.")
-    msg.add_alternative(html_content, subtype="html")
+    elif new_score < old_score:
+        html_content = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                }}
+                h1 {{
+                    color: #d22;
+                }}
+                p {{
+                    font-size: 16px;
+                }}
+                .congrats {{
+                    color: #4caf50;
+                    font-weight: bold;
+                }}
+                .encouragement {{
+                    color: #d22;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Hey {name},</h1>
+            <p>Your score has dropped from <strong>{old_score}</strong> to <strong>{new_score}</strong>.</p>
+            <p class="encouragement">Don't worry! It's normal to have ups and downs, but remember: the most important part is to keep trying and staying active!</p>
+            <p>We believe in your potential! Keep up the effort, and you’ll be back on track in no time!!!</p>
+
+            <h6>p.s, put down the ice cream eh?</h6>
+            <p><strong>Best regards,</strong><br>The Super Heart Team</p>
+        </body>
+        </html>
+        """
+        msg.set_content("Your email client does not support HTML.")
+        msg.add_alternative(html_content, subtype="html")
+    
+    else:
+        return
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:

@@ -6,15 +6,46 @@ const HeartRateChart = ({ data }) => {
   return (
     <div className="chart-container">
       <h3>7-Day Heart Rate Progress</h3>
-      <div className="chart-wrapper" aria-label="Line chart showing the 7-day heart rate progress. The x-axis represents the date, and the y-axis represents the heart rate in beats per minute.">
+      
+      {/* Accessible table for screen readers only */}
+      <table className="visually-hidden" aria-label="Heart rate data for the past 7 days">
+        <caption>Heart rate measurements (beats per minute)</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Heart Rate (BPM)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data && data.map((item, index) => (
+            <tr key={index}>
+              <th scope="row">{item.date}</th>
+              <td>{item.heart_rate} beats per minute</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Average</th>
+            <td>
+              {data && data.length > 0 
+                ? Math.round(data.reduce((sum, day) => sum + (day.heart_rate || 0), 0) / data.length)
+                : 'No data'} beats per minute
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+      
+      {/* Visual chart hidden from screen readers */}
+      <div className="chart-wrapper" aria-hidden="true">
         <ResponsiveContainer width="99%" height={300}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
             <XAxis
               dataKey="date.date"
               stroke="var(--text-secondary)"
-              tick={{ fill: 'var(--text-secondary)', angle: -90, textAnchor: 'end' }} // Rotate labels vertically
-              interval={0} // Ensure all dates are shown
+              tick={{ fill: 'var(--text-secondary)', angle: -90, textAnchor: 'end' }} 
+              interval={0}
             />
             <YAxis
               stroke="var(--text-secondary)"
@@ -28,7 +59,7 @@ const HeartRateChart = ({ data }) => {
               }}
               formatter={(value, name, props) => [
                 value,
-                `Date: ${props.payload.date}`, // Display the date in the tooltip
+                `Date: ${props.payload.date}`, 
               ]}
             />
             <Line

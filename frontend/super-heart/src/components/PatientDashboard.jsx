@@ -82,8 +82,12 @@ const PatientDashboard = () => {
         'activity cardio_fitness electrocardiogram irregular_rhythm_notifications heartrate profile respiratory_rate oxygen_saturation sleep social weight';
 
       // Redirect to Fitbit login page
-      const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${client_id}&scope=${scope}&code_challenge_method=S256&code_challenge=${code_challenge}`;
-      window.open(authUrl, '_blank');
+      if (codeCreation.data.status === 'SKIP') {
+        alert('You are already connected to Fitbit!');
+        return; // Skip the login process if already connected
+      } else {
+      const authUrl = `https://www.fitbit.com/oauth2/authorize?client_id=${client_id}&response_type=code&code_challenge=${code_challenge}&code_challenge_method=S256&scope=${scope}`;
+      window.open(authUrl, '_blank');}
     } catch (error) {
       // Handle different error scenarios
       if (error.response) {
@@ -135,7 +139,7 @@ const PatientDashboard = () => {
         navigate('/login');
       }
     }
-    setTimeout(fetchUserData, 600000);
+    setTimeout(fetchUserData, 6000000); // Refresh every 6000 seconds
   }, [navigate]);
 
   const fetchUsers = async () => {

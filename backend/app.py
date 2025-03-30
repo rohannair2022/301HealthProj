@@ -152,6 +152,8 @@ def register(type):
                 heart_score=0,
                 steps=0
             )
+        print(new_user)
+        welcome_user(new_user.email, new_user.name)
 
         db.session.add(new_user)
         db.session.commit()
@@ -165,8 +167,8 @@ def register(type):
 # Update your login route to check both tables
 @app.route('/login', methods=['POST'])
 def login():
-    with open(TOKEN_FILE_PATH, "w") as file:
-        json.dump({}, file)
+    # with open(TOKEN_FILE_PATH, "w") as file:
+    #     json.dump({}, file)
     data = request.get_json()
     # print(data)
     if not data.get('email') or not data.get('password'):
@@ -479,12 +481,13 @@ def get_weekly_steps():
     patient = Patient.query.filter_by(email=user_email).first()
     with open(TOKEN_FILE_PATH, 'r') as file:
         tokens = json.load(file)
-    
-    if tokens['user'] and tokens['user'] != user_email:
-        return jsonify({"error": "Unauthorized"}), 401
+    try: 
+        if tokens['user'] and tokens['user'] != user_email:
+            return jsonify({"error": "Unauthorized"}), 401  
+    except:
+        pass
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
-
     try:
         # Get Fitbit data for the last 7 days
         end_date = datetime.date.today()
@@ -545,8 +548,11 @@ def get_weekly_heart_rate():
     with open(TOKEN_FILE_PATH, 'r') as file:
         tokens = json.load(file)
     
-    if tokens['user'] and tokens['user'] != user_email:
-        return jsonify({"error": "Unauthorized"}), 401
+    try: 
+        if tokens['user'] and tokens['user'] != user_email:
+            return jsonify({"error": "Unauthorized"}), 401  
+    except:
+        pass
     
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
@@ -1264,19 +1270,44 @@ def delete_file(filename):
 @jwt_required()
 def connect_watch():
     # Generate a random code verifier and challenge
-    if os.getenv("state") == '':
+    flag = False
+    try:
+        with open(TOKEN_FILE_PATH, "r") as file:
+            tokens = json.load(file)
+
+        url = "https://api.fitbit.com/1.1/oauth2/introspect"
+        introspect_response = requests.post(url, headers={
+            'Authorization': 'Bearer ' + tokens['access_token'],
+            'Accept': 'application/x-www-form-urlencoded',
+            'Accept-Language': 'en_US'
+        }, 
+        data={
+            'token': tokens['access_token']
+        })
+        if introspect_response.status_code == 200:
+            if introspect_response.json()['active'] and tokens['user'] == get_jwt_identity():
+                flag = True
+                print("Fitbit token is valid")
+            else:
+                print("Fitbit token is not valid")
+        else:
+            print("Failed to introspect token", introspect_response.json())
+    except Exception as e:
+        # Token file doesn't exist
+        pass
+
+    if os.environ.get("state") == '' and not flag:
         verifier = base64.b64encode(os.urandom(32)).decode().rstrip("=")
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
         os.environ["state"] = verifier
     else:
-        verifier = os.getenv("state")
-        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
-    print("State: ", verifier)
+        return jsonify({"error": "Already connected to Fitbit", "status": "SKIP"})
+        # verifier = os.environ.get("state")
+        # challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+    print("State: ", verifier, challenge)
     # session['state'] = verifier
-    # session['fitbit_user'] = get_jwt_identity()
-    # os.environ["code_verifier"] = code_verifier Dont need this anymore
-    os.environ["fitbit_user"] = get_jwt_identity()
-    
+    os.environ['fitbit_user'] = get_jwt_identity()
+    # os.environ["code_verifier"] = code_verifier Dont need this anymore        
     # Return the code_challenge and client_id to the frontend
     client_id = os.getenv("CLIENT_ID")
     return jsonify({
@@ -1296,14 +1327,14 @@ def callback():
     # code_verifier = os.environ.get("code_verifier")
     # if not code_verifier:
     #     return jsonify({"error": "Code verifier not found"}), 400
-    
+    # print(code)
     # Prepare the token request payload
-    client_id = os.getenv("CLIENT_ID")
-    client_secret = os.getenv("CLIENT_SECRET")
+    client_id = os.environ.get("CLIENT_ID")
+    client_secret = os.environ.get("CLIENT_SECRET")
     # redirect_uri = os.getenv("FITBIT_REDIRECT_URI")
     url = "https://api.fitbit.com/oauth2/token"
-    verifier = os.getenv("state")
-    print("Verifier: ", verifier)
+    verifier = os.environ.get("state")
+    print("Verifier: "+ verifier)
     token_response = requests.post(url, data={
         'client_id': client_id,
         'grant_type': 'authorization_code',
@@ -1316,7 +1347,7 @@ def callback():
         'Content-Type': 'application/x-www-form-urlencoded'
     })
     if token_response.status_code == 200:
-        USER = os.getenv("fitbit_user")
+        USER = os.environ.get("fitbit_user")
         print("Fitbit User: ",USER)
         access_token = token_response.json()['access_token']
         refresh_token = token_response.json()['refresh_token']
@@ -1327,6 +1358,7 @@ def callback():
     else:
         os.environ["fitbit_user"] = ''
         USER = ''
+        os.environ["state"] = ''
         print("Failed to connect to Fitbit", token_response.json(), token_response.status_code)
         return jsonify({"error": "Failed to connect to Fitbit"}), 500
 
@@ -1409,7 +1441,7 @@ def get_fitbit_data(tries=1):
                 try:
                     sleep = data['sleep'][0]['minutesAsleep']
                     patient.sleep = sleep
-                    print("Sleep: ", sleep)
+                    # print("Sleep: ", sleep)
                     db.session.commit()
                     responses.append((jsonify({"message": "Data fetched successfully"}), 200))
                 except:

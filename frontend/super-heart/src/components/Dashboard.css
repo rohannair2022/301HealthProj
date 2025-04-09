@@ -26,7 +26,7 @@
 }
 
 .upload-content {
-  background: white;
+  background: var(--bg-secondary);
   padding: 30px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -35,6 +35,10 @@
   text-align: center;
 }
 
+.upload-content p {
+  color: var(--text-secondary);
+  margin: 20px 0;
+}
 .upload-controls {
   display: flex;
   flex-direction: column;
@@ -45,8 +49,56 @@
 .file-input {
   padding: 10px;
   border: 1px solid #ddd;
+  color: var(--text-primary);
   border-radius: 4px;
   width: 100%;
+}
+
+/* Mobile menu button - hidden by default on desktop */
+.mobile-menu-toggle {
+  display: none;
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  background-color: var(--highlight-color);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+/* Profile circle - Only visible on dashboard pages */
+.profile-circle {
+  display: none; /* Hidden by default */
+  cursor: pointer;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: var(--highlight-color);
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+  position: absolute;
+  top: 40px;
+  right: 40px;
+  z-index: 100;
+}
+
+.profile-circle i {
+  font-size: 1.8rem;
+  color: white;
+}
+
+/* Show profile circle only on dashboard pages */
+.dashboard-active .profile-circle {
+  display: flex;
 }
 
 .upload-button {
@@ -258,7 +310,9 @@ body {
 /* Dashboard Grid - Ensure horizontal layout */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* Force 4 columns */
+  grid-template-columns: repeat(3, 1fr);
+  /* overflow: hidden; */
+  grid-template-rows: 1fr;
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -277,6 +331,15 @@ body {
   color: #ff4757 !important;
 }
 
+@keyframes cardScrollIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-200%);
+  }
+}
+
 @media (max-width: 768px) {
   .logout-btn {
     margin-top: 10px !important;
@@ -288,6 +351,7 @@ body {
 @media (max-width: 1200px) {
   .dashboard-grid {
     grid-template-columns: repeat(2, 1fr); /* 2 columns on smaller screens */
+    grid-template-rows: 1fr;
   }
 }
 
@@ -305,6 +369,7 @@ body {
 
   .dashboard-grid {
     grid-template-columns: 1fr; /* Single column on mobile */
+    grid-template-rows: 1fr;
   }
 
   .app-container {
@@ -317,6 +382,7 @@ body {
   border-radius: 12px;
   padding: 25px;
   box-shadow: var(--card-shadow);
+  /* animation: cardScrollIn 10s linear infinite; */
 }
 
 .dashboard-card h3 {
@@ -457,8 +523,9 @@ body {
 .friend-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
-  margin-left: 24px;
+  gap: 16px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .friend-score {
@@ -469,8 +536,7 @@ body {
 }
 
 .remove-friend-btn {
-  background: none;
-  border: none;
+  background-color: rgba(255, 68, 68, 0.1);
   color: var(--text-secondary);
   cursor: pointer;
   width: 24px;
@@ -482,7 +548,6 @@ body {
   transition: all 0.2s ease;
   padding: 0;
   margin-left: 8px;
-  background-color: rgba(255, 68, 68, 0.1);
 }
 
 .remove-friend-btn i {
@@ -492,7 +557,6 @@ body {
 .remove-friend-btn:hover {
   color: #fff;
   background-color: #ff4444;
-  transform: scale(1.1);
 }
 
 /* Add smooth transitions */
@@ -573,9 +637,448 @@ body {
   background-color: #ffebee;
 }
 
-/* Add Friend Modal Styles */
+/* More spacious Add Friend Modal */
+.modal-dialog {
+  max-width: 400px !important; /* Slightly narrower dialog */
+  width: 90% !important; /* Use percentage width for better responsiveness */
+  margin: 1.75rem auto !important;
+}
 
-.modal-overlay {
+.modal-content {
+  width: 100%;
+  min-width: 350px; /* Ensure the modal has enough width */
+}
+
+/* Ensure header is clearly visible */
+.modal-header {
+  background-color: var(
+    --highlight-color
+  ) !important; /* Use highlight color for consistency */
+  padding: 15px 15px 15px 20px !important; /* Adjust padding to fit close button */
+  border-bottom: none !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+/* Improved close button position and visibility */
+.modal-header .btn-close,
+.modal-header .close {
+  width: 30px !important;
+  height: 30px !important;
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.3
+  ) !important; /* More visible background */
+  position: static !important; /* Don't use absolute positioning */
+  margin-left: 8px !important;
+  margin-right: 0 !important;
+  padding: 0 !important;
+  opacity: 1 !important;
+  color: white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transform: none !important;
+}
+
+/* Ensure clear visibility of the X symbol */
+.modal-header .close::before,
+.modal-header .close::after {
+  content: '' !important;
+  position: absolute !important;
+  width: 14px !important;
+  height: 2px !important;
+  background-color: white !important;
+  border-radius: 1px !important;
+}
+
+/* Make the modal title more visible */
+.modal-title {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 1.1rem !important;
+  margin: 0 !important;
+}
+
+/* Icon-only buttons for accept/reject */
+.request-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  position: relative;
+  width: 100%;
+}
+
+/* Avatar and user info container */
+.request-info {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: calc(100% - 90px); /* Leave space for PENDING badge */
+}
+
+/* Avatar icon */
+.request-info i {
+  margin-right: 12px;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+/* Container for name and type */
+.request-info > div {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Name styling */
+.request-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+/* PENDING status badge */
+.pending-status {
+  position: absolute;
+  right: 10px;
+  background-color: #ffd700;
+  color: #856404;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Clean up action buttons */
+.request-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* Increase gap */
+  margin-left: auto;
+  min-width: 140px; /* Ensure minimum width for the actions area */
+  justify-content: flex-end; /* Align items to the right */
+}
+
+.add-friend-btn:hover {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.add-friend-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.add-friend-btn i {
+  font-size: 12px;
+}
+
+/* Enhanced responsive styles */
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .horizontal-chart {
+    max-width: 100%;
+    min-width: 300px;
+  }
+}
+
+@media (max-width: 992px) {
+  .side-nav {
+    transform: translateX(-100%);
+    position: fixed;
+    z-index: 1000;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+  }
+
+  .side-nav.active {
+    transform: translateX(0);
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    padding-top: 60px; /* Space for mobile menu button */
+  }
+
+  .profile-circle {
+    top: 20px;
+    right: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .horizontal-charts-container {
+    flex-direction: column;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .section-header > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .chart-wrapper {
+    height: 250px;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-card {
+    padding: 15px;
+  }
+
+  .dashboard-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .view-requests-btn,
+  .add-friend-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .friend-actions {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .profile-circle {
+    width: 40px;
+    height: 40px;
+    top: 15px;
+    right: 15px;
+  }
+
+  .profile-circle i {
+    font-size: 1.4rem;
+  }
+
+  .search-bar {
+    padding: 8px 10px;
+  }
+
+  .nav-tabs .nav-link {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+}
+
+/* When menu is open, add overlay to make it easier to close by clicking outside */
+.menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.menu-overlay.active {
+  display: block;
+}
+
+/* Friend Requests Modal Styling - fix width and overflow issues */
+.friend-requests-modal {
+  max-width: 450px !important; /* Force wider modal */
+  width: 450px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.friend-requests-modal .modal-dialog {
+  max-width: 450px;
+  width: 100%;
+  margin: 1.75rem auto;
+}
+
+.friend-requests-modal .modal-content {
+  width: 100%;
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure tab headers and content are fully visible */
+.friend-requests-modal .nav-item {
+  width: 50%;
+  text-align: center;
+}
+
+.friend-requests-modal .nav-link {
+  width: 100%;
+  padding: 12px 5px; /* Reduced padding */
+}
+
+/* Fix request item layout */
+.friend-requests-modal .request-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  width: 100%;
+}
+
+.friend-requests-modal .request-info {
+  display: flex;
+  align-items: center;
+  max-width: 75%; /* Limit width to ensure room for badges/buttons */
+}
+
+.friend-requests-modal .request-details {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.friend-requests-modal .request-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Ensure pending badges and action buttons stay visible */
+.friend-requests-modal .request-actions,
+.friend-requests-modal .request-status {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Fix for mobile screens */
+@media (max-width: 500px) {
+  .friend-requests-modal {
+    max-width: 95% !important;
+    width: 95% !important;
+  }
+
+  .friend-requests-modal .request-info {
+    max-width: 65%;
+  }
+}
+
+/* View Requests button styling */
+.view-requests-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: var(--highlight-color, #77c6c2);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.view-requests-btn:hover {
+  background-color: var(--highlight-hover, #66b5b1);
+  transform: translateY(-2px);
+}
+
+.view-requests-btn:active {
+  transform: translateY(0px);
+}
+
+.view-requests-btn i {
+  font-size: 16px;
+}
+
+/* Force center modal container */
+.force-center-modal-container {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 1050 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.force-center-modal-container .modal {
+  position: relative !important;
+  margin: 0 auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 500px !important;
+  display: block !important;
+}
+
+.force-center-modal {
+  position: relative !important;
+  margin: 0 auto !important;
+  width: 100% !important;
+  max-width: 500px !important;
+  display: block !important;
+}
+
+.force-center-modal-content {
+  border-radius: 10px !important;
+  border: none !important;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+/* If the above doesn't work, this is a nuclear option to override React Bootstrap modal */
+.modal-dialog {
+  position: relative !important;
+  margin: 1.75rem auto !important;
+  max-width: 500px !important;
+  width: calc(100% - 20px) !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  transform: translate(0, 0) !important;
+}
+
+.modal-content {
+  position: relative !important;
+  width: 100% !important;
+}
+
+/* Enhanced Custom Modal Styling */
+.custom-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -583,181 +1086,678 @@ body {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: center;
-  z-index: 1000;
+  z-index: 1050;
 }
 
-.modal-content {
-  background-color: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 600px;
+.custom-modal {
+  background-color: white;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 500px;
   max-height: 80vh;
-  overflow-y: auto;
-  position: relative;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.modal-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  animation: modal-fade-in 0.3s ease;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.custom-modal-header {
+  display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background-color: var(--highlight-color, #77c6c2);
+  border-bottom: none;
 }
 
-.modal-header h3 {
+.custom-modal-title {
+  color: white;
+  font-weight: 600;
+  font-size: 1.2rem;
   margin: 0;
-  color: var(--text-primary);
 }
 
-.close-button {
+.custom-close-button {
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: white;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 5px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
 }
 
-.close-button:hover {
-  color: var(--text-primary);
+.custom-close-button:hover {
+  opacity: 1;
 }
 
-.users-list {
-  margin-top: 20px;
-  max-height: 50vh;
+.custom-modal-body {
   overflow-y: auto;
-  border-radius: 8px;
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  padding: 0;
 }
 
-.no-users-message {
+/* Enhanced Tab Styling */
+.custom-modal .nav-tabs {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: #f8fafc;
+  display: flex;
+}
+
+.custom-modal .nav-item {
+  flex: 1;
+  text-align: center;
+}
+
+.custom-modal .nav-link {
+  color: #64748b;
+  border: none;
+  padding: 14px 20px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.custom-modal .nav-link.active {
+  color: var(--highlight-color, #77c6c2);
+  background: transparent;
+  font-weight: 600;
+}
+
+.custom-modal .nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--highlight-color, #77c6c2);
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+.custom-modal .nav-link:hover:not(.active) {
+  color: #334155;
+}
+
+/* Enhanced tab counter styling */
+.custom-modal .nav-link .tab-count {
+  display: inline-block;
+  background-color: rgba(100, 116, 139, 0.1);
+  color: #64748b;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  margin-left: 5px;
+  font-weight: 500;
+}
+
+.custom-modal .nav-link.active .tab-count {
+  background-color: rgba(119, 198, 194, 0.15);
+  color: #77c6c2;
+}
+
+/* Request container */
+.request-container {
+  max-height: 350px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Enhanced No Requests Message */
+.no-requests-message {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  color: var(--text-secondary);
+  color: #94a3b8;
 }
 
-.no-users-message i {
-  font-size: 2rem;
-  margin-bottom: 12px;
-  opacity: 0.7;
+.no-requests-message i {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  opacity: 0.3;
+  color: #cbd5e1;
 }
 
-.no-users-message p {
-  font-size: 1.1em;
+.no-requests-message p {
+  font-size: 1rem;
   margin: 0;
 }
 
+.no-requests-message .message-hint {
+  font-size: 0.85rem;
+  margin-top: 8px;
+  max-width: 250px;
+  line-height: 1.4;
+}
+
+/* Request item styling */
+.request-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s;
+  position: relative; /* Ensure proper positioning */
+}
+
+.request-item:hover {
+  background-color: #f1f5f9;
+}
+
+.request-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  margin-right: 20px;
+  max-width: calc(100% - 160px); /* Ensure space for actions */
+}
+
+.request-info i {
+  font-size: 24px;
+  margin-right: 15px;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 8px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.request-details {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.request-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.95rem;
+}
+
+.request-type {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  background-color: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Enhanced Action buttons */
+.request-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* Increase gap */
+  margin-left: auto;
+  min-width: 140px; /* Ensure minimum width for the actions area */
+  justify-content: flex-end; /* Align items to the right */
+}
+
+.accept-btn,
+.reject-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.accept-btn {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.accept-btn:hover {
+  background-color: #22c55e;
+  color: white;
+  transform: scale(1.05);
+}
+
+.reject-btn {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.reject-btn:hover {
+  background-color: #ef4444;
+  color: white;
+  transform: scale(1.05);
+}
+
+/* Enhanced Status badge */
+.request-status {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.pending-status {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(234, 179, 8, 0.1);
+  color: #eab308;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0; /* Prevent shrinking */
+  position: relative; /* Ensure proper positioning */
+  z-index: 1; /* Lower z-index than cancel button */
+  max-width: 80px; /* Maximum width */
+}
+
+.pending-status::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #eab308;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+/* Add Friend Modal Specific Styling */
+.add-friend-modal {
+  width: 100%;
+  max-width: 550px; /* Slightly wider than the requests modal */
+  max-height: 85vh;
+}
+
+/* Search container */
+.search-container {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.search-form {
+  display: flex;
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.9rem;
+  pointer-events: none; /* So it doesn't interfere with input */
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 15px 10px 35px; /* Add left padding for the search icon */
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+  width: 100%;
+  background-color: #f8fafc;
+  transition: all 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(119, 198, 194, 0.2);
+  border-color: var(--highlight-color, #77c6c2);
+  background-color: white;
+}
+
+/* Remove the clear button styles since we're not using it anymore */
+/*.search-clear-button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+}*/
+
+/* Update the clear search button to be more prominent */
+.clear-search-btn {
+  margin-top: 10px;
+  background-color: #f1f5f9;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.clear-search-btn:hover {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.clear-search-btn i {
+  font-size: 0.75rem;
+}
+
+/* Loading indicator */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #64748b;
+}
+
+.loading-indicator i {
+  margin-right: 10px;
+  color: var(--highlight-color, #77c6c2);
+}
+
+/* No results message */
+.no-results-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.no-results-message i {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  opacity: 0.3;
+  color: #cbd5e1;
+}
+
+.no-results-message p {
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Search results */
+.search-results {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* User item styling */
 .user-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-  transition: all 0.2s ease;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s;
+}
+
+.user-item:hover {
+  background-color: #f1f5f9;
 }
 
 .user-info {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
   flex: 1;
+  min-width: 0;
+  margin-right: 15px;
 }
 
 .user-info i {
-  font-size: 2.5rem;
-  color: var(--text-secondary);
-  margin-top: 4px;
+  font-size: 24px;
+  margin-right: 15px;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 8px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .user-primary-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  margin-bottom: 4px;
 }
 
 .user-name {
-  font-size: 1.1em;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+  font-size: 0.95rem;
 }
 
 .user-type {
-  color: var(--text-secondary);
-  font-size: 0.85em;
-  font-weight: 600;
-  background-color: var(--bg-hover);
-  padding: 4px 8px;
+  font-size: 0.65rem;
+  padding: 2px 6px;
   border-radius: 4px;
+  margin-left: 5px;
+}
+
+.user-type.patient {
+  background-color: rgba(56, 189, 248, 0.1);
+  color: #0284c7;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.user-type.doctor {
+  background-color: rgba(168, 85, 247, 0.1);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
 }
 
 .user-email {
-  color: var(--text-secondary);
-  font-size: 0.85em;
-  opacity: 0.8;
-  margin-bottom: 2px;
+  display: block;
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .specialty,
 .heart-score {
-  color: var(--text-secondary);
-  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #64748b;
 }
 
+.specialty i,
+.heart-score i {
+  font-size: 0.8rem;
+  margin-right: 5px;
+  color: #64748b;
+  background: none;
+  padding: 0;
+  width: auto;
+  height: auto;
+}
+
+/* Add friend button */
 .add-friend-btn {
-  align-self: center;
-  background-color: var(--bg-hover);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 8px 16px;
+  background-color: var(--highlight-color, #77c6c2);
+  color: white;
+  border: none;
   border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9em;
-  margin-left: 16px;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.add-friend-btn i {
+  margin-right: 5px;
 }
 
 .add-friend-btn:hover {
-  background-color: var(--text-primary);
-  color: var(--bg-primary);
+  background-color: var(--highlight-hover, #66b5b1);
+  transform: translateY(-1px);
 }
 
-/* Update search bar styles */
-.search-bar {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  margin: 16px 0;
-  padding: 8px 16px;
-  border-radius: 8px;
+/* Request sent button */
+.request-sent-btn {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
-.search-bar input {
-  background-color: transparent;
-  color: var(--text-primary);
+.request-sent-btn i {
+  margin-right: 5px;
+  color: #10b981;
 }
 
-.search-bar input::placeholder {
-  color: var(--text-secondary);
+/* Cancel button for outgoing requests */
+.cancel-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px; /* Ensure minimum width */
+  border-radius: 50%;
+  border: none;
+  background-color: #ffebee; /* Light red background */
+  color: #e53935; /* Red text */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-left: 15px; /* Increase left margin */
+  flex-shrink: 0; /* Prevent shrinking */
+  position: relative; /* Ensure proper positioning */
+  z-index: 2; /* Higher z-index than pending status */
 }
 
-/* Empty state message */
-.friends-list p {
-  color: var(--text-secondary);
-  text-align: center;
-  padding: 20px;
+.cancel-btn:hover {
+  background-color: #e53935;
+  color: white;
+  transform: scale(1.05);
+}
+
+/* Update the request-actions to accommodate both status and cancel button */
+.request-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Doctor specific action buttons - simple icons */
+.doctor-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.accept-icon-btn,
+.reject-icon-btn,
+.cancel-icon-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+  padding: 5px;
+}
+
+.accept-icon-btn {
+  color: #22c55e; /* Green */
+}
+
+.reject-icon-btn,
+.cancel-icon-btn {
+  color: #ef4444; /* Red */
+}
+
+.accept-icon-btn:hover,
+.reject-icon-btn:hover,
+.cancel-icon-btn:hover {
+  transform: scale(1.15);
 }
